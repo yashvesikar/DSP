@@ -1,0 +1,69 @@
+# BDTSP: min distance, given alpha 
+param T := 6;              # time horizon (hours) <= 950/60; initial time stage = 0, time period [0,T]
+param alpha := 5;         # number of ships to be visited during [0,T]; for a single optimixation fix alpha, 0<alpha<=n
+param n;                   # total number of ships visiting the work area during [0,T]
+let n := 63;               # total number of ships visiting the work area during [0,T]
+param w := 5/60;           # time slot (hours)
+param p := 3/60;           # service time (hours); NOTE: we requier p<w
+param v := 46.3;           # speed (km/h) of the service vessel
+param m := floor(T/w+0.1); # number of time slots in [0,T]
+param x{k in 0..190, i in 0..63}; # x-coordinate (km) of ship i in slot k; i=0 is the harbor
+param y{k in 0..190, i in 0..63}; # y-coordinate (km) of ship i in slot k; i=0 is the harbor 
+                           # for i>0, coordinates (x[k,i],y[k,i])=(0,0) means that ship i is outside the work area in slot k
+param first{i in 1..63};   # first slot when ship i in in the work area
+param  last{i in 1..63};   #  last slot when ship i in in the work area
+param shipn{i in 1..63};   # original ship numbers for new ship numbers i
+param shipo{i in 1..63};   # new ship numbers for original ship numbers i (if i is not excluded)
+set I := 0..n;
+set S{i in 0..n} := (if i=0 then {0,m} else first[i]..last[i]);
+param slot{i in I}; 
+param seq{i in 1..alpha+1};   # sequence of ships to be visited; seq defines one member of the population
+param t0; param f; param r; param f1; param r1; param t; param sl; param dijkl; param dist;
+
+var z{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k} binary; # move from (i,k) to (j,l)
+var s{k in 0..m} >= (if k=0 or k=m then 0 else (k-1)*w) <= (if k=0 then 0 else k*w);  # service start of slot k
+
+minimize obj:  sum{i in I, k in S[i], j in I, l in S[j]: i>0 and j>0 and i!=j and l>k} sqrt((x[k,i]-x[l,j])^2+(y[k,i]-y[l,j])^2)*z[i,k,j,l] 
+             + sum{j in I, l in S[j]: j>0 and l>0} sqrt(x[l,j]^2 + y[l,j]^2)*z[0,0,j,l] 
+             + sum{i in I, k in S[i]: i>0 and k<m} sqrt(x[k,i]^2 + y[k,i]^2)*z[i,k,0,m] + 1e-6*s[m]; # 
+
+  init: sum{j in I, l in S[j]: j>0 and l>0}  z[0,0,j,l] = 1;
+
+finish: sum{i in I, k in S[i]: i>0 and k<m}  z[i,k,0,m] = 1;
+
+interm{i in I, k in S[i]: i>0 and k>0}: sum{j in I, l in S[j]: i!=j and l<k} z[j,l,i,k] = 
+                                        sum{j in I, l in S[j]: i!=j and l>k} z[i,k,j,l];
+
+start{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k}: 
+       s[l] >= s[k] + (p + sqrt((x[k,i]-x[l,j])^2+(y[k,i]-y[l,j])^2)/v)*z[i,k,j,l]; 
+
+visiti{i in I: i>0}: sum{k in S[i], j in I, l in S[j]: i!=j and l>k} z[i,k,j,l] <= 1; 
+
+visits: sum{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k} z[i,k,j,l] = alpha+1; 
+
+
+# revise data fot T hours
+data /home/yash/Documents/DSP/x.dat; data /home/yash/Documents/DSP/y.dat;  # data x.txt; data y.txt; # excel data from Alaleh
+let{i in 1..n} first[i] := min(m,min{k in 0..m: x[k,i]!=0 and y[k,i]!=0} k); # find first slot for i in the work area
+let{i in 1..n}  last[i] := max(0,max{k in 0..m: x[k,i]!=0 and y[k,i]!=0} k); # find  last slot for i in the work area
+let r := 0;
+for{j in 1..n: first[j]<=last[j]}{
+    let r := r + 1;
+    let{i in 0..m} x[i,r]:= x[i,j];
+    let{i in 0..m} y[i,r]:= y[i,j];
+    let first[r]:= first[j];
+    let  last[r]:=  last[j];
+    let shipn[r] := j;
+    let shipo[j] := r;
+};
+let n := r;
+display n; # number of eligible ships
+display m; # number of time slots
+############## begin test case: note the renumbering of ships after schrinking ###
+# for fittness evaluation, enter here values alpha and seq(*):
+  let alpha := 5;      # test case, number of ships to be visited during [0,T]; 
+  let seq[1]  := shipo[56]; # temporary sequence for testing
+  let seq[2]  := shipo[26]; # temporary sequence for testing
+  let seq[3]  := shipo[33]; # temporary sequence for testing
+  let seq[4]  := shipo[ 8]; # temporary sequence for testing
+  let seq[5]  := shipo[12]; # temporary sequence for testing

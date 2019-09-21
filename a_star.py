@@ -264,8 +264,8 @@ class Problem:
             # Get the current A* node and add it to the closed/visited set
             current = heapq.heappop(op)
             # Empty out the op queue every time because we are taking the greedy solution
-            op = []
-            heapq.heapify(op)
+            # op = []
+            # heapq.heapify(op)
             closed.add(current)
 
             # If the current node is the harbor and you are returning
@@ -309,7 +309,8 @@ class Problem:
                             child_pos = child.get_coords()
 
                             child.g = current.g + 1
-                            child.h = self.distance(child_pos, HARBOR_POS)
+                            # child.h = self.distance(child_pos, HARBOR_POS)
+                            child.h = self.distance(child_pos, current.get_coords())
                             child.f = child.g + child.h
 
                             # Don't quite understand this condition
@@ -444,6 +445,10 @@ if __name__ == "__main__":
     seq = [56, 26, 33, 8, 12]
     og_seq = seq[:]
     prob = Problem(xy_data)
-    path, distance = prob.solve_relaxed(seq=seq)
+    # path, distance = prob.solve_relaxed(seq=seq)
+    path, distance = prob.solve_greedy(seq=seq)
 
     prob.visualize_path(path)
+    for p in path:
+        print(p)
+    print(f"DISTANCE MIN NEXT: {distance}")

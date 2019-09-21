@@ -1,0 +1,88 @@
+import numpy as np
+
+class Ship:
+    def __init__(self, positions, times):
+        self.positions = positions
+        self.times = times
+
+    def get_positions(self):
+        return self.positions
+
+    def get_position(self, time):
+        if self.exists(time):
+            return self.positions[time - self.times[0]]
+
+    def get_times(self, array=False):
+        if array:
+            return np.arange(self.times[0], self.times[1])
+        return self.times
+
+    def exists(self, time):
+        return self.times[0] <= time <= self.times[1]
+
+
+class Problem:
+    def __init__(self, xy_data, T=6):
+        self.ships = None
+        self.construct(xy_data, T)
+
+    def construct(self, xy_data, T):
+        ships = []
+
+        # Size of the time slot
+        w = 5/60
+
+        # number of ships in the working area in time [0, T]
+        n = xy_data.shape[1]
+
+        # Number of time slots in time [0, T]
+        m = int(np.floor(T / w + 0.1))
+
+        # first = np.full(n, m, dtype=np.int)  # First slot when ship i is in the work area
+        first = m  # First slot when ship i is in the work area
+        # last = np.full(n, 0, dtype=np.int)  # Last slot when ship i is in the work area
+        last = 0  # Last slot when ship i is in the work area
+
+        # For loop to fill out first, and last array
+        for s in range(n):
+
+            c = np.all(xy_data[:, s] != 0, axis=1)
+            non_zero = np.where(c)[0]
+            if len(non_zero):
+                # first[s] = non_zero[0]
+                first = non_zero[0]
+                # last[s] = non_zero[-1] + 1
+                last = non_zero[-1] + 1
+            elif s == 0:
+                # first[s] = 0
+                first = 0
+                # last[s] = m
+                last = m
+            else:
+                # first[s] = -1
+                first = -1
+                # last[s] = -1
+                last = -1
+            ships.append(Ship(positions=xy_data[first:last, s], times=(first, last)))
+
+        self.ships = ships
+        # # Harbor should always be (0, 0)
+        # # Replace all other (0, 0) values with nan
+        # xy_data[:m, 1:][xy_data[:m, 1:] == np.array([0, 0])] = np.nan
+        # self.positions = xy_data
+        # self.times = np.column_stack((first, last))
+        print()
+
+    def get_ship(self, s):
+        return self.ships[s]
+
+
+
+if __name__ == "__main__":
+    # Data
+    x_data = np.genfromtxt("data/x.csv", delimiter=",")
+    y_data = np.genfromtxt("data/y.csv", delimiter=",")
+
+    xy_data = np.stack([x_data, y_data], axis=2)
+
+    P = Problem(xy_data)
