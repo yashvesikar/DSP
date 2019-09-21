@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from scipy.spatial.distance import cdist
 
@@ -10,8 +12,8 @@ class DPSolver:
 
     @staticmethod
     def distance(n1, n2):
-        return np.sqrt(np.sum((n2 - n1) ** 2))
-        # return math.sqrt((n1[0] - n2[0]) ** 2 + (n1[1] - n2[1]) ** 2)
+        # return np.sqrt(np.sum((n2 - n1) ** 2))
+        return math.sqrt((n1[0] - n2[0]) ** 2 + (n1[1] - n2[1]) ** 2)
 
     @staticmethod
     def travel_time(d):
@@ -39,46 +41,64 @@ class DPSolver:
         for s in seq:
             ships.append(self.problem.get_ship(s))
 
-        P = np.zeros((1, 2))
-        T = [0]
-        path = [[[0, 0]]]
-        sched = [[0]]
+        Positions = np.zeros((1, 2))
+        Times = [0]
+        Path = [[[0, 0]]]
+        Schedule = [[0]]
 
         for k in range(len(ships) - 1):
+
 
             s1 = ships[k]
             s2 = ships[k + 1]
 
             time2, points2 = s2.get_times(array=True), s2.get_positions()
 
-            D = cdist(points2, P)
-            X = np.argsort(D, axis=1)
+            # Returning to the harbor
+            if ships[k + 1].id == 0:
+                time2, points2 = np.array([time2[-1]]), np.array([points2[-1]])
 
-            _p = []
-            _t = []
+            distance_matrix = cdist(points2, Positions)
+            if distance_matrix.shape[1] == 1:
+                axis=0
+            else:
+                axis=1
+
+            decision_matrix = np.argsort(distance_matrix, axis=axis)
+
+            _positions = []
+            _times = []
             _path = []
-            _sched = []
+            _schedule = []
 
-            for j in range(X.shape[0]):
+            for j in range(decision_matrix.shape[0]):
 
-                for i in X[j]:
+                for i in decision_matrix[j]:
 
-                    next_time = T[i] + self.travel_time(D[j, i]) + 0.6
+                    if axis == 0:
+                        j, i = i, 0
+                        # travel = self.travel_time(distance_matrix[i, j])
+                    # else:
+                        # travel = self.travel_time(distance_matrix[j, i])
+
+                    travel = self.travel_time(distance_matrix[j, i])
+
+                    next_time = Times[i] + travel + 0.6
 
                     if next_time <= time2[j]:
-                        _p.append(points2[j])
-                        _t.append(time2[j])
-                        _path.append(path[i] + [points2[j].tolist()])
-                        _sched.append(sched[i] + [time2[j]])
+                        _positions.append(points2[j])
+                        _times.append(time2[j])
+                        _path.append(Path[i] + [points2[j].tolist()])
+                        _schedule.append(Schedule[i] + [time2[j]])
                         break
 
-            path = _path
-            P = _p
-            sched = _sched
-            if _t[0] != np.inf:
-                T = _t
+            Path = _path
+            Positions = _positions
+            Schedule = _schedule
+            if _times[0] != np.inf:
+                Times = _times
 
-        return path, sched
+        return Path[0], Schedule[0]
 
 
 if __name__ == "__main__":
@@ -92,7 +112,8 @@ if __name__ == "__main__":
 
     S = DPSolver(P)
 
-    seq = [8, 5, 30, 63, 4]
+    # seq = [8, 5, 30, 63, 4]
+    seq = [56, 26, 33, 8, 12]
 
     pos, sched = S.solve_sequence(seq)
 

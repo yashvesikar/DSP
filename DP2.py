@@ -1,7 +1,8 @@
 import numpy as np
 
 class Ship:
-    def __init__(self, positions, times):
+    def __init__(self, number, positions, times):
+        self.id = number
         self.positions = positions
         self.times = times
 
@@ -13,7 +14,9 @@ class Ship:
             return self.positions[time - self.times[0]]
 
     def get_times(self, array=False):
-        if array:
+        if not self.times:
+            return np.array([])
+        if array and self.times:
             return np.arange(self.times[0], self.times[1])
         return self.times
 
@@ -48,6 +51,7 @@ class Problem:
 
             c = np.all(xy_data[:, s] != 0, axis=1)
             non_zero = np.where(c)[0]
+            # number = s
             if len(non_zero):
                 # first[s] = non_zero[0]
                 first = non_zero[0]
@@ -57,13 +61,14 @@ class Problem:
                 # first[s] = 0
                 first = 0
                 # last[s] = m
-                last = m
+                last = m + 1
+                # number = 0
             else:
                 # first[s] = -1
                 first = -1
                 # last[s] = -1
                 last = -1
-            ships.append(Ship(positions=xy_data[first:last, s], times=(first, last)))
+            ships.append(Ship(number=s, positions=xy_data[first:last, s], times=(first, last)))
 
         self.ships = ships
         # # Harbor should always be (0, 0)

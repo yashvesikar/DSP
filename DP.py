@@ -254,8 +254,8 @@ def distance(n1, n2):
     return math.sqrt((n1[0] - n2[0]) ** 2 + (n1[1] - n2[1]) ** 2)
 
 if __name__ == "__main__":
-    # seq = [56, 26, 33, 8, 12]
-    seq = [8, 5, 30, 63, 4]
+    seq = [56, 26, 33, 8, 12]
+    # seq = [8, 5, 30, 63, 4]
 
     # Data
     x_data = np.genfromtxt("data/x.csv", delimiter=",")
@@ -293,9 +293,10 @@ if __name__ == "__main__":
     print(f"TOTAL DISTANCE: {d}")
 
 
-    # path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 12, 13, 18, 23, 50, 50])
-    path_ampl, dist = prob.match_ampl(seq=[0, 8, 5, 30, 63, 4, 0], t_seq=[0, 9, 12, 24, 36, 51, 71])
-    prob.visualize_path(path_ampl[1:-1], [8, 5, 30, 63, 4, 0], [9, 12, 24, 36, 51, 71])
+    path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 12, 13, 18, 23, 50, 50])
+    # path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 9, 12, 24, 36, 51, 71])
+    # prob.visualize_path(path_ampl[1:-1], [8, 5, 30, 63, 4, 0], [9, 12, 24, 36, 51, 71])
+    prob.visualize_path(path_ampl[1:-1], [56, 26, 33, 8, 12, 0], [12, 13, 18, 23, 50, 50])
     print(f"TOTAL AMPL DISTANCE: {dist}")
 
 
