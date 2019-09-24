@@ -3,7 +3,7 @@ import math
 import numpy as np
 from scipy.spatial.distance import cdist
 
-from DP2 import Problem
+from Problem import Problem
 
 
 class DPSolver:
@@ -23,6 +23,17 @@ class DPSolver:
         w = 5 / 60
 
         return np.floor(t / (w + 0.1))
+
+
+    def path_distance(self, positions):
+
+        d = 0
+        for p in range(len(positions) - 1):
+
+            d += self.distance(positions[p + 1], positions[p])
+
+        return d
+
 
     def solve_sequence(self, seq):
         """
@@ -60,9 +71,9 @@ class DPSolver:
 
             distance_matrix = cdist(points2, Positions)
             if distance_matrix.shape[1] == 1:
-                axis=0
+                axis = 0
             else:
-                axis=1
+                axis = 1
 
             decision_matrix = np.argsort(distance_matrix, axis=axis)
 
@@ -70,35 +81,41 @@ class DPSolver:
             _times = []
             _path = []
             _schedule = []
+            _distances = []
 
             for j in range(decision_matrix.shape[0]):
+                # For every time slot the next ship is available
 
                 for i in decision_matrix[j]:
-
+                    # Based on the feasible paths until this point, check which paths can be expanded
                     if axis == 0:
                         j, i = i, 0
-                        # travel = self.travel_time(distance_matrix[i, j])
-                    # else:
-                        # travel = self.travel_time(distance_matrix[j, i])
 
                     travel = self.travel_time(distance_matrix[j, i])
 
                     next_time = Times[i] + travel + 0.6
 
                     if next_time <= time2[j]:
+                        D = self.path_distance(Path[i] + [points2[j].tolist()])
+                        _distances.append(D)
                         _positions.append(points2[j])
                         _times.append(time2[j])
                         _path.append(Path[i] + [points2[j].tolist()])
                         _schedule.append(Schedule[i] + [time2[j]])
                         break
 
+
             Path = _path
+            # Path = np.array(_path)[mask].tolist()
             Positions = _positions
+            # Positions = np.array(_positions)[mask].tolist()
             Schedule = _schedule
+            # Schedule = np.array(_schedule)[mask].tolist()
             if _times[0] != np.inf:
                 Times = _times
+                # Times = np.array(_times)[mask].tolist()
 
-        return Path[0], Schedule[0]
+        return Path, Schedule
 
 
 if __name__ == "__main__":
@@ -117,7 +134,7 @@ if __name__ == "__main__":
 
     pos, sched = S.solve_sequence(seq)
 
-    d = 0
-    for p in range(len(pos) - 1):
-        d += S.distance(pos[p + 1], pos[p])
-    print(f"TOTAL DISTANCE: {d}")
+    # d = 0
+    # for p in range(len(pos) - 1):
+    #     d += S.distance(pos[p + 1], pos[p])
+    # print(f"TOTAL DISTANCE: {d}")
