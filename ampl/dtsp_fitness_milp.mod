@@ -46,7 +46,7 @@ startn{kk in S[alpha]}: s[m] >= s[kk] + (p+sqrt(x[kk,seq[alpha]]^2+y[kk,seq[alph
 param shipn{ii in 1..63}; # original ship numbers for new ship numbers ii
 param shipo{ii in 1..63}; # new ship numbers for original ship numbers ii (if ii is not excluded)
 #   in files x.dat and y.dat the harbor coordinates are translated to (0,0); for i>0, x=0 or y=0 'mean out of work area'
-  data x.dat; data y.dat;  # data x.txt; data y.txt; # excel data from Alaleh
+  # data x.dat; data y.dat;  # data x.txt; data y.txt; # excel data from Alaleh
   let{ii in 1..n} first[ii] := min(m,min{kk in 0..m: x[kk,ii]!=0 and y[kk,ii]!=0} kk); # find first slot for i in the work area
   let{ii in 1..n}  last[ii] := max(0,max{kk in 0..m: x[kk,ii]!=0 and y[kk,ii]!=0} kk); # find  last slot for i in the work area
   let j := 0;
@@ -65,12 +65,12 @@ param shipo{ii in 1..63}; # new ship numbers for original ship numbers ii (if ii
 
 ############## begin test case: note the renumbering of ships after schrinking ###
 # for fittness evaluation, enter here values alpha and seq(*):
-  let alpha := 5;      # test case, number of ships to be visited during [0,T]; 
-  let seq[1]  := shipo[56]; # temporary sequence for testing
-  let seq[2]  := shipo[26]; # temporary sequence for testing
-  let seq[3]  := shipo[33]; # temporary sequence for testing
-  let seq[4]  := shipo[ 8]; # temporary sequence for testing
-  let seq[5]  := shipo[12]; # temporary sequence for testing
+  # let alpha := 5;      # test case, number of ships to be visited during [0,T];
+  # let seq[1]  := shipo[56]; # temporary sequence for testing
+  # let seq[2]  := shipo[26]; # temporary sequence for testing
+  # let seq[3]  := shipo[33]; # temporary sequence for testing
+  # let seq[4]  := shipo[ 8]; # temporary sequence for testing
+  # let seq[5]  := shipo[12]; # temporary sequence for testing
 ### end test case ###
 
 # MIP for fittness evaluation

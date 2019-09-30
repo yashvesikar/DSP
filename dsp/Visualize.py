@@ -43,12 +43,13 @@ class Visualizer:
             # Add first and last times for this ship
             s = self.problem.get_ship(ship)
             f, l = s.get_times()
-            x_first.append(f)
-            y_first.append(l)
+            x_first.append(s.get_position(f)[0])
+            y_first.append(s.get_position(f)[1])
 
             positions = s.get_positions()
-            x.extend(positions[0])
-            y.extend(positions[1])
+            x.extend(positions[:, 0])
+            y.extend(positions[:, 1])
+            plt.scatter(positions[:, 0], positions[:, 1], alpha=0.5)
 
             position = s.get_position(time=t)
 
@@ -59,13 +60,13 @@ class Visualizer:
             plt.annotate(str(t), xy=(position[0], position[1]), fontsize='large')
 
         # The paths of the ships with coloring
-        full_paths = ax.scatter(x, y, c=tags, cmap=cmap, alpha=0.5)
+        # full_paths = plt.scatter(x, y, c=tags, cmap=cmap, alpha=0.5)
         plt.scatter(x_first, y_first, c='k', alpha=1, s=5)
         # The path of the service ship with marking
         plt.plot(x_path, y_path, c='red', ls='-', lw=2, marker='*', ms=10)
 
         # create the colorbar
-        cb = plt.colorbar(full_paths, spacing='proportional', ticks=bounds)
-        cb.set_label('Ships')
+        # cb = plt.colorbar(full_paths, spacing='proportional', ticks=bounds)
+        # cb.set_label('Ships')
         ax.set_title('Service Ship Path')
         plt.show()

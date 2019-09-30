@@ -293,10 +293,10 @@ if __name__ == "__main__":
     print(f"TOTAL DISTANCE: {d}")
 
 
-    path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 12, 13, 18, 23, 50, 50])
+    # path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 12, 13, 18, 23, 50, 50])
     # path_ampl, dist = prob.match_ampl(seq=[0, 56, 26, 33, 8, 12, 0], t_seq=[0, 9, 12, 24, 36, 51, 71])
     # prob.visualize_path(path_ampl[1:-1], [8, 5, 30, 63, 4, 0], [9, 12, 24, 36, 51, 71])
-    prob.visualize_path(path_ampl[1:-1], [56, 26, 33, 8, 12, 0], [12, 13, 18, 23, 50, 50])
-    print(f"TOTAL AMPL DISTANCE: {dist}")
+    # prob.visualize_path(path_ampl[1:-1], [56, 26, 33, 8, 12, 0], [12, 13, 18, 23, 50, 50])
+    # print(f"TOTAL AMPL DISTANCE: {dist}")
 
 

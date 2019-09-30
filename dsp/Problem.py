@@ -6,7 +6,10 @@ class Ship:
         self.positions = positions
         self.times = times
 
-    def get_positions(self):
+    def get_positions(self, range=None):
+        if range:
+            start, end = range
+            return self.positions[start - self.times[0]: end+1 - self.times[0]]
         return self.positions
 
     def get_position(self, time):
@@ -19,6 +22,15 @@ class Ship:
         if array and self.times:
             return np.arange(self.times[0], self.times[1])
         return self.times
+
+    def get_relative_times(self, array=False):
+        if not self.times:
+            return np.array([])
+        if array and self.times:
+            return np.arange(self.times[0] - self.times[0], self.times[1] - self.times[0])
+        return self.times - self.times[0]
+
+
 
     def exists(self, time):
         return self.times[0] <= time <= self.times[1]
