@@ -39,6 +39,8 @@ class Ship:
 class Problem:
     def __init__(self, xy_data, T=6):
         self.ships = None
+        w = 5/60
+        self.m = np.floor((T/w) + 0.1)
         self.construct(xy_data, T)
 
     def construct(self, xy_data, T):

@@ -62,12 +62,3 @@ param shipo{ii in 1..63}; # new ship numbers for original ship numbers ii (if ii
   let n := j;
   display n; # number of eligible ships
   display m; # number of time slots
-
-############## begin test case: note the renumbering of ships after schrinking ###
-
-# MIP for fittness evaluation
-# option solver mosek;
-# option mosek_options' outlev=0 MSK_IPAR_INTPNT_MAX_ITERATIONS=500 MSK_DPAR_INTPNT_NL_TOL_REL_GAP=1e-8 MSK_DPAR_OPTIMIZER_MAX_TIME=3600';
-# option mosek_options' outlev=0 MSK_IPAR_INTPNT_MAX_ITERATIONS=500 MSK_DPAR_OPTIMIZER_MAX_TIME=3600';
-# solve;
-############## end of test case: note the renumbering of ships after schrinking ###
