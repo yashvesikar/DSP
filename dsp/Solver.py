@@ -1,20 +1,15 @@
 import math
-from typing import Type
-
 import numpy as np
-from scipy.spatial.distance import cdist
-
 from dsp.Problem import Problem
 from dsp.Visualize import Visualizer
 
 class State:
 
-    def __init__(self, shape, value):
-        self.indexes = np.full(shape, value, dtype=np.int)
-        self.schedule = np.full(shape, value, dtype=np.int)
-        self.distances = np.full(shape, value, dtype=np.float)
-        self.times = np.full(shape, value, dtype=np.float)
-        # self.positions = np.full(shape, value, dtype=np.float)
+    def __init__(self, shape=None, value=None):
+        self.indexes = np.full(shape, value, dtype=np.int) if shape else None
+        self.schedule = np.full(shape, value, dtype=np.int) if shape else None
+        self.distances = np.full(shape, value, dtype=np.float) if shape else None
+        self.times = np.full(shape, value, dtype=np.float) if shape else None
         self.i = 0
 
     def __repr__(self):
@@ -36,9 +31,7 @@ class DPSolver:
         self.problem = problem
         self.states = states if states is not None else []
         self.seq = seq
-        # self.s = []
-        # for i in range(self.problem.m):
-        #     if i == m:
+        self.feasible = False
 
 
     def __repr__(self):
@@ -73,6 +66,29 @@ class DPSolver:
 
         return t / w
 
+    def get_most_recent_time_pos(self):
+        """
+        If the DPSolver has solved a feasible schedule we need the time slot and position of the last ship in the sequence
+
+        This is used in order to make a distance calculation to determine which ships to expand to in the sequence search
+
+        :return: time slot, position
+        """
+        assert self.feasible is True
+
+        last_state = self.states[-1]
+        last_ship_index = last_state.indexes[0]  # index of the optimal move from the last ship to harbor in the last ship state
+
+        last_ship_id = self.seq[-2]
+        last_ship = self.problem.get_ship(last_ship_id)
+
+        last_ship_state = self.states[-2]
+        last_ship_schedule = last_ship_state.schedule[last_ship_index]
+        last_ship_pos = last_ship.get_position(last_ship_schedule)
+
+        return last_ship_schedule, last_ship_pos, last_ship_id
+
+
     def path_distance(self, positions):
 
         d = 0
@@ -99,20 +115,6 @@ class DPSolver:
             d2.append(self.distance(path[p + 1], path[p]))
         return d
 
-    def check_feasible(self, seq, times):
-        PROC_TIME = 0.6
-        time_windows = []
-        travel_times = []
-        for s in range(len(seq) - 1):
-            s0 = self.problem.get_ship(seq[s])
-            s1 = self.problem.get_ship(seq[s + 1])
-
-            d = self.distance(s0.get_position(times[s]), s1.get_position(times[s + 1]))
-            travel_times.append(self.travel_time(d) + PROC_TIME)
-            time_windows.append(times[s + 1] - times[s])
-
-        print(f"TRAVEL WINDOWS: {time_windows}")
-        print(f"TRAVEL TIMES: {travel_times}")
 
     def construct_from_states(self, states, seq=None, return_path=False, return_distance=False):
         if seq is None:
@@ -167,6 +169,9 @@ class DPSolver:
             self.next(s)
         sol = self.construct_from_states(self.states, return_path=return_path, return_distance=return_distance)
 
+        if sol is not None:
+            self.feasible = True
+
         return sol
 
     def next(self, s):
@@ -205,10 +210,10 @@ class DPSolver:
         total_distance += last_state.distances
 
         # New state object to store state of the current ship
-        _state = State(shape=current_ship_time.shape, value=np.nan)
+        _state = State()
 
         # eliminate all infeasible solutions by setting the travel time to infinite
-        total_time_to_next = self.travel_time(distance_matrix)  # Store travel times to next ship
+        total_time_to_next = (distance_matrix / 46.3) / (5 / 60)  # Store travel times to next ship
 
         if last_ship.id == 0:
             shape = total_time_to_next.shape
@@ -246,9 +251,10 @@ if __name__ == "__main__":
 
     P = Problem(xy_data)
 
-    # seq = [0, 8, 5, 30, 63, 4, 0]
+    seq = [0, 8, 5, 30, 63, 4, 0]
+    # seq = [0, 33, 8, 44, 32, 4, 0]
     # seq = [0, 56, 26, 33, 8, 12, 0]
-    seq = [0, 15, 5, 8, 44, 38, 4, 12, 23, 61, 28, 0]
+    # seq = [0, 15, 5, 8, 44, 38, 4, 12, 23, 61, 28, 0]
     # seq = [0, 29, 32, 4, 0]
     S = DPSolver(P, seq=[])
 
@@ -256,10 +262,8 @@ if __name__ == "__main__":
     print(sched, dist)
     print(S.states[-1].distances[0])
 
-    # # Viz = Visualizer(P)
-    # # Viz.visualize_path(seq, sched[0])
-    #
+    Viz = Visualizer(P)
+    Viz.visualize_path(seq, sched)
+
     ampl = S.match_ampl(seq, sched)
     print(f"AMPL SOL: {ampl}")
-    #
-    # S.check_feasible(seq, sched)

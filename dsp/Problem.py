@@ -33,7 +33,7 @@ class Ship:
 
 
     def exists(self, time):
-        return self.times[0] <= time <= self.times[1]
+        return self.times[0] <= time < self.times[1]
 
 
 class Problem:
@@ -42,6 +42,30 @@ class Problem:
         w = 5/60
         self.m = np.floor((T/w) + 0.1)
         self.construct(xy_data, T)
+        self.in_working_area = self.ships_in_working_area()
+
+    def get_ships_positions(self, S):
+        """
+
+        :param S: A list of ships for which to return all positions
+        :return:
+        """
+        pos = []
+        for s in S:
+            pos.append(self.ships[s].get_positions())
+        return pos
+
+    def ships_in_working_area(self, t=None):
+        if not t:
+            t = self.m
+
+        w = []
+
+        for s in self.ships:
+            if s.times[0] <= t:
+                w.append(s.id)
+        return w
+
 
     def construct(self, xy_data, T):
         ships = []
