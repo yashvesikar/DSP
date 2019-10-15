@@ -39,8 +39,10 @@ class Ship:
 class Problem:
     def __init__(self, xy_data, T=6):
         self.ships = None
+        self.data = xy_data
         w = 5/60
         self.m = np.floor((T/w) + 0.1)
+        self.T = T
         self.construct(xy_data, T)
         self.in_working_area = self.ships_in_working_area()
 

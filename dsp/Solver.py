@@ -32,6 +32,7 @@ class DPSolver:
         self.states = states if states is not None else []
         self.seq = seq
         self.feasible = False
+        self.solution = None
 
 
     def __repr__(self):
@@ -251,7 +252,8 @@ if __name__ == "__main__":
 
     P = Problem(xy_data)
 
-    seq = [0, 8, 5, 30, 63, 4, 0]
+    # seq = [0, 8, 5, 30, 63, 4, 0]
+    seq = [0, 1, 16, 2, 0]
     # seq = [0, 33, 8, 44, 32, 4, 0]
     # seq = [0, 56, 26, 33, 8, 12, 0]
     # seq = [0, 15, 5, 8, 44, 38, 4, 12, 23, 61, 28, 0]

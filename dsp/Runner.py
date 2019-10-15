@@ -6,141 +6,140 @@ import numpy as np
 
 from dsp.Problem import Problem
 from dsp.Solver import DPSolver
-import queue
+from dsp.exploration import distance_based
+from dsp.truncation import distance_truncation, nds_truncation
 from collections import deque
 
 ALPHA = np.arange(1, 64)
 np.random.seed(10)
 
 
-def sequence_search(root, available, problem, func=None, height=0, size=10000):
-    """
+class SequenceSolver:
+    def __init__(self, root, problem, height_limit=5, level_size_limit=10000):
+        self.P = problem
+        self.root = root
+        self.level_limit = level_size_limit
+        self.height_limit = height_limit
+        self.available = self.calculate_available()
+        self.results = {}
 
-    :param num: ID of the ship
-    :param available: Set of available ship ids
-    :param visited: set of visited ship ids
-    :return:
-    """
+    def calculate_available(self):
+        T = self.P.T
+        available = set(np.nonzero(self.P.data[:T, :, 0])[1])
+        return available
 
-    # Set the harbor
-    root.next(0)
-    h = 0  # Height counter
-    Q = deque([root, None])
-    infeasible = 0
-    total = 0
+    def sequence_search(self,
+                        available,
+                        truncation=None,
+                        exploration=None,
+                        truncation_args=None):
+        """
 
-    best_dist = [0]
-    level_best_dist = 1e10
+        :param truncation_args:
+        :param exploration:
+        :param truncation:
+        :param problem:
+        :param available: Set of available ship ids
+        :param visited: set of visited ship ids
+        :return:
+        """
 
-    best_solver = [root]
-    level_best_solver = None
-    q_size = [1]
-    while len(Q) > 0:
+        # Set the harbor
+        self.root.next(0)
+        h = 0  # Height counter
+        Q = deque([self.root, None])
+        infeasible = 0
+        total = 0
 
-        current = Q.popleft()
+        postprocessing = []
+        best_dist = [0]
+        level_best_dist = 1e10
 
-        if current is None:
-            sorted_q = sorted(Q, key=lambda x: x.states[-1].distances[0])
-            if len(sorted_q) > size:
-                sorted_q = sorted_q[:size]
+        best_solver = [self.root]
+        level_best_solver = None
+        q_size = [1]
+        while len(Q) > 0:
 
-                Q = deque(sorted_q)
-            # Next level is starting
-            Q.append(None)
+            current = Q.popleft()
 
-            print(f"Finished Processing Level # {h}")
-            h += 1
-            q_size.append(len(Q))
-            best_dist.append(level_best_dist)
-            level_best_dist = 1e10
-            best_solver.append(level_best_solver)
-            # with open(f"/home/yash/PycharmProjects/DSP/results/res1.F", 'w+') as fp:
-            #     fp.write(f"Exploration: {np.inf}, Truncation: {10000}\n")
-            #     fp.write(f"Level # {h} \n")
-            #     fp.write("\n".join(f"Level {i}: {str(item)}, Dist: {best_dist[i]}" for i, item in enumerate(best_solver)))
-            if h >= height:
-                break
-            continue
+            if current is None:
 
-        avail = available - set(current.seq)
-        if func:
-            if current is not root:
-                avail = func(avail=avail, current=current, problem=problem)
+                Q, data = truncation(Q=Q, **truncation_args)
 
-
-        for s in avail:
-            total += 1
-            sol = copy.copy(current)
-            if len(sol.states) > 1:
-                sol.pop_state()
-
-            if sol.next(s) is False: continue
-            if sol.next(0) is False: continue
-
-            last_state = sol.get_last_state()
-            if not last_state or len(last_state) == 0:
-                infeasible += 1
+                print(f"Finished Processing Level # {h}")
+                h += 1
+                q_size.append(len(Q))
+                best_dist.append(level_best_dist)
+                level_best_dist = 1e10
+                best_solver.append(level_best_solver)
+                postprocessing.append(data)
+                if h >= self.height_limit:
+                    break
                 continue
 
-            sol.feasible = True  # Set the DP solver to feasible
+            avail = available - set(current.seq)
+            if exploration:
+                if current is not self.root:
+                    avail = exploration(avail=avail, current=current, problem=self.P)
 
-            path_distance = last_state.distances[0]
-            if path_distance < level_best_dist:
-                level_best_dist = path_distance
-                level_best_solver = sol
-            if h <= height:
-                Q.append(sol)
-    print(f"Infeasible Count: {infeasible}")
-    return best_dist, best_solver, q_size, total
+            for s in avail:
+                total += 1
+                sol = copy.copy(current)
+                if len(sol.states) > 1:
+                    sol.pop_state()
 
+                if sol.next(s) is False: continue
+                if sol.next(0) is False: continue
 
-def distance_based(avail, current, problem):
+                last_state = sol.get_last_state()
+                if not last_state or len(last_state) == 0:
+                    infeasible += 1
+                    continue
 
-        # We use some metric to limit the expansion of a node to 10
+                sol.feasible = True  # Set the DP solver to feasible
+                sol.solution = (last_state.distances[0], len(sol.states)-2, last_state.times[0])
+                path_distance = last_state.distances[0]
+                if path_distance < level_best_dist:
+                    level_best_dist = path_distance
+                    level_best_solver = sol
+                if h <= self.height_limit:
+                    Q.append(sol)
+        print(f"Infeasible Count: {infeasible}")
 
-        t, pos, _id = current.get_most_recent_time_pos()
-        current_ship = problem.get_ship(_id)
-        pos = current_ship.get_positions(range=(t, current_ship.get_times()[1]))
-
-        s_id = []
-        abs_dist = []
-
-        for p in avail:
-            ship = problem.get_ship(p)
-
-            ship_pos = ship.get_positions(range=(t+1, ship.get_times()[1]))
-
-            if len(ship_pos):
-                dist = cdist(pos, ship_pos)
-                s_id.append(p)
-                abs_dist.append(np.min(dist))
-
-        s_id = np.array(s_id)
-        if len(s_id) > 15:
-            next_lvl = s_id[np.argsort(abs_dist)][:10]
-        else:
-            next_lvl = s_id
-
-        avail = set(next_lvl)
-        return avail
+        result = {}
+        result["best_dist"] = best_dist
+        result["best_solver"] = best_solver
+        result["q_size"] = q_size
+        result["total_evaluations"] = total
+        result["postprocess"] = postprocessing
+        return result
 
 
 if __name__ == "__main__":
+
     # Time frame
     T = 6
 
     # Data
-    x_data = np.genfromtxt("/home/yash/PycharmProjects/DSP/data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("/home/yash/PycharmProjects/DSP/data/y.csv", delimiter=",")
+    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
+    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
 
     xy_data = np.stack([x_data, y_data], axis=2)
 
+    # Create sequence solver object
     P = Problem(xy_data, T=6)
-    ALPHA = set(P.in_working_area)
     root = DPSolver(P, seq=[])
+    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=4)
+
+    # Create values for sequence search
+    ALPHA = set(P.in_working_area)
+    truncation_args = {'limit': 10000}
+    exploration = None
+
     start = time.time()
-    best_dist, best_solv, q_size, total = sequence_search(root=root, available=set(ALPHA), problem=P, height=5)  # Exhaustive
-    # best_dist, best_solv, q_size, total = sequence_search(root=root, available=set(ALPHA), problem=P, func=distance_based, height=23)
+    result = SeqSolver.sequence_search(available=ALPHA,
+                                       exploration=exploration,
+                                       truncation=nds_truncation,
+                                       truncation_args=truncation_args)
     end = time.time()
-    print(f"{end-start}")
-    print(total)
+    print(f"{end - start}")
