@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # Create sequence solver object
     P = Problem(xy_data, T=6)
     root = DPSolver(P, seq=[])
-    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=4)
+    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=16)
 
     # Create values for sequence search
     ALPHA = set(P.in_working_area)
