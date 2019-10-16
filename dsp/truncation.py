@@ -4,28 +4,42 @@ import itertools
 import matplotlib.pyplot as plt
 
 
+def time_truncation(Q, **kwargs):
+    data = {}
+    if kwargs.get('limit'):
+        limit = kwargs['limit']
+    else:
+        limit = 1e4
+
+    Q = sorted(Q, key=lambda x: x.states[-1].schedule[0])
+    if len(Q) > limit:
+        Q = Q[:limit]
+    Q.append(None)
+    return deque(Q), data
+
+
 def distance_truncation(Q, **kwargs):
     data = {}
     if kwargs.get('limit'):
         limit = kwargs['limit']
     else:
         limit = 1e4
-    Q = sorted(Q, key=lambda x: x.states[-1].distances[0])
+    Q = sorted(Q, key=lambda x: x.states[-1].distances[0] * (x.states[-1].schedule[0]/72))
 
-    d = [q.states[-1].distances[0] for q in Q]
-    min_d, max_d = d[0], d[-1]
-    bins = np.linspace(min_d, max_d, 30)
+    # d = [q.states[-1].distances[0] for q in Q]
+    # min_d, max_d = min(d), max(d)
+    # bins = np.linspace(min_d, max_d, 30)
 
     if len(Q) > limit:
         # Q = statistical_limit(Q)
         Q = Q[:limit]
 
-    d2 = [q.states[-1].distances[0] for q in Q]
-
-    plt.hist([d, d2], bins=bins)
-    plt.title(f"level {len(Q[0].states)-2} - count {len(Q)}")
-
-    plt.show()
+    # d2 = [q.states[-1].distances[0] for q in Q]
+    #
+    # plt.hist([d, d2], bins=bins)
+    # plt.title(f"level {len(Q[0].states)-2} - count {len(Q)}")
+    #
+    # plt.show()
     Q.append(None)  # Mark the end of a level
     return deque(Q), data
 
@@ -47,9 +61,13 @@ def nds_truncation(Q, **kwargs):
         type = 'time'
 
     ######## Initial histogram bins
-    d = [q.states[-1].distances[0] for q in Q]
-    min_d, max_d = d[0], d[-1]
-    bins = np.linspace(min_d, max_d, 30)
+    # d = [q.states[-1].distances[0] for q in Q]
+    # min_d, max_d = min(d), max(d)
+    # print(min_d," - ", max_d)
+    # bins = np.linspace(min_d, max_d, 30)
+    # d1 = [l.solution[0] for l in Q]
+    # t1 = [l.solution[1] for l in Q]
+
     ########
     # Construct the objective value data set
     F = []
@@ -74,10 +92,13 @@ def nds_truncation(Q, **kwargs):
         q.append(Q[j])
 
     ###### After truncation Histogram
-    d2 = [l.states[-1].distances[0] for l in q]
-    plt.hist([d, d2], bins=bins)
-    plt.title(f"NDS level {len(Q[0].states)-2} - count {len(Q)}")
-    plt.show()
+    # d2 = [l.solution[0] for l in q]
+    # t2 = [l.solution[1] for l in q]
+    # plt.title(f"NDS level {len(Q[0].states)-2} - count {len(Q)} - {type}")
+    # plt.scatter(x=t1, y=d1)
+    # plt.scatter(x=t2, y=d2)
+    # plt.show()
+
     ######
 
     q.append(None)
@@ -91,8 +112,13 @@ def nds_2d(F, **kwargs):
     fronts = []
     count = 0
     indexes = []
+
+    # Used to get metrics on number of fronts and size of splitting front
+    add = True
+    last_front_size = 0
     while count < kwargs['limit']:
         front = [F[mask[0]]]
+
         indicies = [mask[0]]
         minimum = front[0][0]
         count += 1
@@ -101,20 +127,29 @@ def nds_2d(F, **kwargs):
             if i == 0:
                 continue
             if count > kwargs['limit']:
-                break
+                add = False
+                last_front_size = len(front)
 
             if F[ind][0] < minimum:
-                front.append(F[ind])
-                indicies.append(ind)
-                minimum = F[ind][0]
-                count += 1
+                if add:
+                    front.append(F[ind])
+                    indicies.append(ind)
+                    minimum = F[ind][0]
+                    count += 1
+                else:
+                    last_front_size += 1
+
             else:
-                new_mask.append(ind)
+                if add:
+                    new_mask.append(ind)
 
         mask = new_mask
         fronts.append(front)
         indexes.append(indicies)
-
+        if add is False:
+            break
+    # print(f"Number of fronts: {len(fronts)}")
+    # print(f"Splitting front size: {len(front)}/{last_front_size}\n")
     return indexes, fronts
 
 
@@ -125,6 +160,22 @@ def statistical_limit(Q):
     input()
     return Q[:10000]
 
+def exhsaustive_truncation(Q, **kwargs):
+
+    data = {}
+    # d = [l.solution[0] for l in Q]
+    # if kwargs.get('type') == 'alpha':
+    #
+    #     t = [l.solution[1] for l in Q]
+    # else:
+    #     t = [l.solution[2] for l in Q]
+    #
+    # plt.title(f"Exhaustive level {len(Q[0].states)-2} - count {len(Q)} - {kwargs.get('type')}")
+    # plt.scatter(x=t, y=d)
+    # plt.show()
+
+    Q.append(None)
+    return Q, data
 
 
 

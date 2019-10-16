@@ -3,11 +3,12 @@ import time
 from scipy.spatial.distance import cdist, pdist
 
 import numpy as np
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from dsp.Problem import Problem
 from dsp.Solver import DPSolver
 from dsp.exploration import distance_based
-from dsp.truncation import distance_truncation, nds_truncation
+from dsp.truncation import distance_truncation, nds_truncation, exhsaustive_truncation, time_truncation
 from collections import deque
 
 ALPHA = np.arange(1, 64)
@@ -51,6 +52,11 @@ class SequenceSolver:
         infeasible = 0
         total = 0
 
+        # For plotting
+        everything = []
+        selected = []
+        #
+
         postprocessing = []
         best_dist = [0]
         level_best_dist = 1e10
@@ -63,10 +69,12 @@ class SequenceSolver:
             current = Q.popleft()
 
             if current is None:
-
+                if len(Q) == 0:
+                    break
+                everything.extend(Q)
                 Q, data = truncation(Q=Q, **truncation_args)
-
-                print(f"Finished Processing Level # {h}")
+                selected.extend(Q)
+                print(f"Finished Processing Level # {h + 1}")
                 h += 1
                 q_size.append(len(Q))
                 best_dist.append(level_best_dist)
@@ -97,7 +105,7 @@ class SequenceSolver:
                     continue
 
                 sol.feasible = True  # Set the DP solver to feasible
-                sol.solution = (last_state.distances[0], len(sol.states)-2, last_state.times[0])
+                sol.solution = (last_state.distances[0], len(sol.states) - 2, last_state.schedule[0])
                 path_distance = last_state.distances[0]
                 if path_distance < level_best_dist:
                     level_best_dist = path_distance
@@ -112,6 +120,29 @@ class SequenceSolver:
         result["q_size"] = q_size
         result["total_evaluations"] = total
         result["postprocess"] = postprocessing
+
+        if False:
+            d = [l.solution[0] for l in everything if l]
+            a = [l.solution[1] for l in everything if l]
+            t = [l.solution[2] for l in everything if l]
+
+            d2 = [l.solution[0] for l in selected if l]
+            a2 = [l.solution[1] for l in selected if l]
+            t2 = [l.solution[2] for l in selected if l]
+
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+
+            ax.scatter(a, t, d, c='b', marker='.')
+            ax.scatter(a2, t2, d2, c='r', marker='.')
+
+            ax.set_xlabel('Alpha')
+            ax.set_ylabel('Time')
+            ax.set_zlabel('Distance')
+            plt.title(f"Exhaustive level {len(Q[0].states) - 2} - count {len(Q)} - {truncation_args.get('type')}")
+
+            plt.show()
         return result
 
 
@@ -129,17 +160,35 @@ if __name__ == "__main__":
     # Create sequence solver object
     P = Problem(xy_data, T=6)
     root = DPSolver(P, seq=[])
-    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=16)
+    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=15)
 
     # Create values for sequence search
     ALPHA = set(P.in_working_area)
-    truncation_args = {'limit': 10000}
+    truncation_args = {'limit': 1000, 'type': 'alpha'}
     exploration = None
 
     start = time.time()
-    result = SeqSolver.sequence_search(available=ALPHA,
-                                       exploration=exploration,
-                                       truncation=nds_truncation,
-                                       truncation_args=truncation_args)
+    method = 1
+    if method == 0:
+        result = SeqSolver.sequence_search(available=ALPHA,
+                                           exploration=exploration,
+                                           truncation=nds_truncation,
+                                           truncation_args=truncation_args)
+    elif method == 1:
+        result = SeqSolver.sequence_search(available=ALPHA,
+                                           exploration=exploration,
+                                           truncation=distance_truncation,
+                                           truncation_args=truncation_args)
+    elif method == 2:
+        result = SeqSolver.sequence_search(available=ALPHA,
+                                           exploration=exploration,
+                                           truncation=time_truncation,
+                                           truncation_args=truncation_args)
+    elif method == 3:
+        result = SeqSolver.sequence_search(available=ALPHA,
+                                           exploration=exploration,
+                                           truncation=exhsaustive_truncation,
+                                           truncation_args=truncation_args)
+
     end = time.time()
     print(f"{end - start}")

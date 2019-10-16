@@ -201,9 +201,6 @@ class DPSolver:
 
         # Get the times and positions of the current ship
         current_ship_time, current_ship_pos = current_ship.get_times(array=True), current_ship.get_positions()
-        if current_ship.id == 0:
-            # Returning to the harbor
-            current_ship_time, current_ship_pos = np.array([current_ship_time[-1]]), np.array([current_ship_pos[-1]])
 
         # Calculate the distance between the 2 ship paths, and modify the total_distance matrix
         distance_matrix = np.atleast_2d(np.sqrt(((current_ship_pos[:, None] - Positions[None, :]) ** 2).sum(axis=2)))
@@ -221,11 +218,25 @@ class DPSolver:
             # Newest to oldest
             total_time_to_next[total_time_to_next >= (current_ship_time[:, None] - Times)] = np.inf
             total_distance[total_time_to_next >= (current_ship_time[:, None] - Times)] = np.inf
-
         else:
             # newest to oldest
             total_time_to_next[total_time_to_next >= (current_ship_time[:, None] - Times + 0.4)] = np.inf
             total_distance[total_time_to_next >= (current_ship_time[:, None] - Times + 0.4)] = np.inf
+
+        if current_ship.id == 0:
+            # When returning to the harbor we want to select only the single best time to return
+            # The time is selected based on minimum distance to the harbor
+            # Since harbor is always at the same position we can use this to simplify the decision.
+            # Previously Always returned at Time 72, now will return at earliest & best feasible time
+
+            # Index of minimum distance in total_distance matrix
+            ind = np.unravel_index(np.argmin(total_distance, axis=None), total_distance.shape)
+
+            # Simplified distance and time matrixes/arrays
+            total_time_to_next = np.atleast_2d(total_time_to_next[ind[0], :])
+            total_distance = np.atleast_2d(total_distance[ind[0], :])
+            current_ship_time = np.array([current_ship_time[ind[0]]])
+
 
         # Choose closest feasible position index for each of the current ship positions
         state_indexes = np.argmin(total_distance, axis=1)
@@ -253,7 +264,8 @@ if __name__ == "__main__":
     P = Problem(xy_data)
 
     # seq = [0, 8, 5, 30, 63, 4, 0]
-    seq = [0, 1, 16, 2, 0]
+    # seq = [0, 1, 16, 2, 0]
+    seq = [0, 32, 63, 4, 0]
     # seq = [0, 33, 8, 44, 32, 4, 0]
     # seq = [0, 56, 26, 33, 8, 12, 0]
     # seq = [0, 15, 5, 8, 44, 38, 4, 12, 23, 61, 28, 0]

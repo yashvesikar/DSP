@@ -1,0 +1,111 @@
+# BDTSP: min distance, given alpha 
+param T := 4;              # time horizon (hours) <= 950/60; initial time stage = 0, time period [0,T]
+param alpha := 13;         # number of ships to be visited during [0,T]; for a single optimixation fix alpha, 0<alpha<=n
+param n;                   # total number of ships visiting the work area during [0,T]
+let n := 63;               # total number of ships visiting the work area during [0,T]
+param w := 5/60;           # time slot (hours)
+param p := 3/60;           # service time (hours); NOTE: we requier p<w
+param v := 46.3;           # speed (km/h) of the service vessel
+param m := floor(T/w+0.1); # number of time slots in [0,T]
+param x{k in 0..190, i in 0..63}; # x-coordinate (km) of ship i in slot k; i=0 is the harbor
+param y{k in 0..190, i in 0..63}; # y-coordinate (km) of ship i in slot k; i=0 is the harbor 
+                           # for i>0, coordinates (x[k,i],y[k,i])=(0,0) means that ship i is outside the work area in slot k
+param first{i in 1..63};   # first slot when ship i in in the work area
+param  last{i in 1..63};   #  last slot when ship i in in the work area
+param shipn{i in 1..63};   # original ship numbers for new ship numbers i
+param shipo{i in 1..63};   # new ship numbers for original ship numbers i (if i is not excluded)
+set I := 0..n;
+set S{i in 0..n} := (if i=0 then {0,m} else first[i]..last[i]);
+param slot{i in I}; 
+param seq{i in 1..alpha+1};   # sequence of ships to be visited; seq defines one member of the population
+param t0; param f; param r; param f1; param r1; param t; param sl; param dijkl; param dist;
+
+var z{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k} binary; # move from (i,k) to (j,l)
+var s{k in 0..m} >= (if k=0 or k=m then 0 else (k-1)*w) <= (if k=0 then 0 else k*w);  # service start of slot k
+
+minimize obj:  sum{i in I, k in S[i], j in I, l in S[j]: i>0 and j>0 and i!=j and l>k} sqrt((x[k,i]-x[l,j])^2+(y[k,i]-y[l,j])^2)*z[i,k,j,l] 
+             + sum{j in I, l in S[j]: j>0 and l>0} sqrt(x[l,j]^2 + y[l,j]^2)*z[0,0,j,l] 
+             + sum{i in I, k in S[i]: i>0 and k<m} sqrt(x[k,i]^2 + y[k,i]^2)*z[i,k,0,m] + 1e-6*s[m]; # 
+
+  init: sum{j in I, l in S[j]: j>0 and l>0}  z[0,0,j,l] = 1;
+
+finish: sum{i in I, k in S[i]: i>0 and k<m}  z[i,k,0,m] = 1;
+
+interm{i in I, k in S[i]: i>0 and k>0}: sum{j in I, l in S[j]: i!=j and l<k} z[j,l,i,k] = 
+                                        sum{j in I, l in S[j]: i!=j and l>k} z[i,k,j,l];
+
+start{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k}: 
+       s[l] >= s[k] + (p + sqrt((x[k,i]-x[l,j])^2+(y[k,i]-y[l,j])^2)/v)*z[i,k,j,l]; 
+
+visiti{i in I: i>0}: sum{k in S[i], j in I, l in S[j]: i!=j and l>k} z[i,k,j,l] <= 1; 
+
+visits: sum{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k} z[i,k,j,l] = alpha+1; 
+
+
+# revise data fot T hours
+data x.dat; data y.dat;  # data x.txt; data y.txt; # excel data from Alaleh
+let{i in 1..n} first[i] := min(m,min{k in 0..m: x[k,i]!=0 and y[k,i]!=0} k); # find first slot for i in the work area
+let{i in 1..n}  last[i] := max(0,max{k in 0..m: x[k,i]!=0 and y[k,i]!=0} k); # find  last slot for i in the work area
+let r := 0;
+for{j in 1..n: first[j]<=last[j]}{
+    let r := r + 1;
+    let{i in 0..m} x[i,r]:= x[i,j];
+    let{i in 0..m} y[i,r]:= y[i,j];
+    let first[r]:= first[j];
+    let  last[r]:=  last[j];
+    let shipn[r] := j;
+    let shipo[j] := r;
+};
+let n := r;
+display n; # number of eligible ships
+display m; # number of time slots
+
+option solver mosek;
+option mosek_options' outlev=2 MSK_DPAR_INTPNT_NL_TOL_REL_GAP=1e-2 MSK_DPAR_OPTIMIZER_MAX_TIME=36000';
+let t0 := time();
+solve;
+printf"\nn=%2i m=%2i alpha=%2i time=%8.5f\n",n,m,alpha,time()-t0;
+let{i in I} slot[i] := 0; 
+let r := 0;
+let f := 0;
+#for{i in I, k in S[i], j in I, l in S[j]: i!=j and l>k and z[i,k,j,l]>0.9}{
+for{ii in 1..alpha+1}{
+  for{k in S[r], j in I, l in S[j]: j!=r and l>k and (r=0 or k>0)}{
+     if z[r,k,j,l]>0.9 then{let f :=  f + 1; let seq[f] := j; let slot[r] := k;  let slot[j] := l;
+       printf"\nseq=%3i  i=%3i j=%3i    k=%3i l=%3i    s(k)=%6.2f s(l)=%6.2f  l*w=%6.2f",seq[f],r,j,k,l,s[k],s[l],l*w};
+   };
+   let r := seq[ii];
+};
+printf"\n";
+let dist := 0;
+for{ii in 1..alpha}{
+  let r := seq[ii];
+  let f := slot[r];
+  if ii>1 then{let r1 := seq[ii-1]; let f1 := slot[r1]};
+  let dijkl := (if ii=1 then sqrt(x[f,r]^2+y[f,r]^2) else 
+    sqrt((x[f,r]-x[f1,r1])^2+(y[f,r]-y[f1,r1])^2));
+  let dist := dist + dijkl;
+  printf"\nship=%2i (%2i)  slot=%3i start=%5.2f  dijkl=%5.2f  dist=%6.2f",shipn[r],r,f,s[f],dijkl,dist; 
+};
+let r1 :=  seq[alpha]; let f1 := slot[r1];
+let dijkl := sqrt(x[f1,r1]^2+y[f1,r1]^2);
+let dist := dist + dijkl;
+let t := s[f1] + p + dijkl/v;
+let f := (if abs(s[m]-T)<1e-6 then m else 1+floor(s[m]/w));
+printf"\nharbor        slot=%3i  back=%5.2f  dijkl=%5.2f  dist=%6.2f"
+                         ,f,t,dijkl,dist;  printf"\n";
+display T,s[m],dist;
+quit;
+
+# check (currently omitted)
+for{i in I}{
+  let j := seq[i];
+  let l := slot[i];
+  let dijkl := (if i=1 then sqrt(x[l,seq[1]]^2+y[l,seq[1]]^2) else 
+        sqrt((x[slot[i-1],seq[i-1]]-x[l,seq[i]])^2+(y[slot[i-1],seq[i-1]]-y[l,seq[i]])^2));
+  if i=1 and s[l] +1e-6 <                     dijkl/v then{printf"\n error %2i",i};
+  if i>1 and s[l] +1e-6 < s[slot[i-1]] + p + dijkl/v then{printf"\n error %2i",i};
+};
+let dijkl := sqrt(x[slot[alpha],seq[alpha]]^2+y[slot[alpha],seq[alpha]]^2);
+if s[m] +1e-8 < s[slot[alpha]] + p + dijkl/v then{printf"\n error %2i",alpha};
+# end check
