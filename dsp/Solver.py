@@ -41,6 +41,12 @@ class DPSolver:
     def __copy__(self):
         return DPSolver(problem=self.problem, seq=self.seq[:], states=self.states[:])
 
+    def clear(self):
+        self.states = []
+        self.seq = []
+        self.feasible = False
+        self.solution = None
+
     def pop_state(self):
         self.states.pop()
         self.seq.pop()

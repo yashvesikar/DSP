@@ -57,14 +57,14 @@ class Problem:
             pos.append(self.ships[s].get_positions())
         return pos
 
-    def ships_in_working_area(self, t=None):
-        if not t:
-            t = self.m
+    def ships_in_working_area(self, start=0, end=None):
+        if end is None:
+            end = self.m
 
         w = []
 
         for s in self.ships:
-            if s.times[0] <= t:
+            if start <= s.times[0] <= end:
                 w.append(s.id)
         return w
 
