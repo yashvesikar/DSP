@@ -274,6 +274,7 @@ def solve_sequence(problem, seq, **kwargs):
 
     for s in seq:
         solver.next(s)
+
     sol = solver.construct_from_states(solver.states, return_path=False, return_distance=True)
 
     if sol is not None:

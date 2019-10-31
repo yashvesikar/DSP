@@ -139,6 +139,7 @@ class SequenceSolver:
         result["selected"] = selected
         result["best_dist"] = best_dist
         result["best_solver"] = best_solver
+        result["all_seq"] = all_seq
         result["total_evaluations"] = total
         return result
 
