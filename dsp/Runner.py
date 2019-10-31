@@ -121,7 +121,7 @@ class SequenceSolver:
 
                 # Feasible Solution updates
                 sol.update(feasible=True)  # Set the DP solver to feasible
-                sol.solution = (sol.dist, len(sol.states) - 2, sol.schedule[-1])
+                sol.solution = (sol.dist, len(sol.states) - 2, sol.schedule)
 
                 # Update counters and trackers
                 if sol.dist < level_best_dist:
@@ -148,10 +148,10 @@ if __name__ == "__main__":
     P = load_problem(T=6)
     ALPHA = set(P.ships_in_working_area())
 
-    SeqSolver = SequenceSolver(problem=P, height_limit=20)
+    SeqSolver = SequenceSolver(problem=P, height_limit=4)
 
     # truncation_args = {'limit': 1000, 'method': "decomposition", 'w': 0.306}
-    truncation_args = {'limit': 10, 'method': "distance"}
+    truncation_args = {'limit': 100, 'method': "distance"}
 
     start = time.time()
 

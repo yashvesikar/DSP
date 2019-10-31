@@ -14,11 +14,9 @@ def sliding_window(k, n, S):
     """
     success = 0
     fail = 0
-    seq, sched = S.seq, S.schedule
-    P = S.problem
-    best = 1e10
+    seq, sched, problem = S.seq, S.schedule, S.problem
+    best_dist = 1e10
     best_solver = None
-    best_solver_obj = None
     n += 1
     for i in range(len(seq)-n):
         avail = P.ships_in_working_area(start=sched[i], end=sched[i + n])
@@ -28,27 +26,20 @@ def sliding_window(k, n, S):
 
         sub_seq = list(itertools.permutations(avail, k))
 
-
         for ship in sub_seq:
             _seq = seq[:i+1] + list(ship) + seq[i+n:]
-
-            # S.clear()
             result = solve_sequence(problem=P, seq=_seq)
-            # result = S.solve(seq=_seq, return_distance=True)
-            if result:
-                # print(f"Success: {_seq}, dist: {result[1]}")
+            if result.feasible:
                 success += 1
-                s, d = result.schedule, result.dist
-                if d < best:
-                    best = d
-                    best_solver = (_seq, s, d)
-                    best_solver_obj = copy.deepcopy(result)
-                    # best_solver = (_seq, s, d)
+
+                if result.dist < best_dist:
+                    best_dist = result.dist
+                    best_solver = result
+
             else:
-                # print(f"Failed: {new_seq}")
                 fail += 1
 
-    return best_solver_obj
+    return best_solver
 
 
 def sliding_window_solver(k, n, solver):
@@ -76,54 +67,21 @@ def sliding_window_solver(k, n, solver):
 
 
 if __name__ == "__main__":
-    from dsp.Problem import Problem
+    from dsp.Problem import Problem, load_problem
     from dsp.Solver import DPSolver
     from dsp.Runner import SequenceSolver
     import time
     import pprint as pp
 
-    # Time frame
-    T = 6
-
-    # Data
-    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
-
-    xy_data = np.stack([x_data, y_data], axis=2)
-
     # Create sequence solver object
-    P = Problem(xy_data, T=T)
-    root = DPSolver(P, seq=[])
-    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=3)
-
-    # Create values for sequence search
-    ALPHA = set(P.in_working_area)
-    truncation_args = {'limit': 1000, 'type': 'alpha'}
-    exploration = None
-
-    S = DPSolver(problem=P, seq=seq)
+    P = load_problem()
 
     start = time.time()
-
-    seq = [0, 32, 63, 4, 0]
+    seq = [0, 32, 63, 12, 0]  # Should yield [0, 32, 63, 4, 0] as optimal
+    solver = solve_sequence(problem=P, seq=seq)
     # seq2 = [0, 32, 30, 63, 4, 0]
     # seq2 = [0, 8, 5, 30, 63, 4, 0]
     # seq = [0, 33, 15, 8, 5, 44, 26, 56, 53, 38, 4, 32, 30, 63, 12, 43, 7, 16, 23, 61, 28, 0]
     # seq = [0, 4, 0]
-    sched1, dist1 = S.solve(return_distance=True)
-    sched1[-1] = P.m
-    print(f"Length {len(sched1)-2} dist: {dist1}")
-    S.clear()
-
-    results = []
-    s = sched1
-    # for i in range(20):
-    res = sliding_window(1, 2, seq, sched=s)
-    results.append(res)
-
-        # if res:
-        #     seq, s, d = res
-        #     s[-1] = P.m
-        # else:
-        #     break
-    # pp.pprint(results)
+    result = sliding_window(2, 1, solver)
+    print(result)

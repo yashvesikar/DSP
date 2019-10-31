@@ -63,7 +63,11 @@ class Problem:
         w = []
 
         for s in self.ships:
-            if start <= s.times[0] <= end:
+            # Time entering WA > end of window
+            # Or Time leaving WA < start of window
+            if s.times[0] > end or s.times[1] < start:
+                continue
+            else:
                 w.append(s.id)
         return w
 
