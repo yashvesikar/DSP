@@ -33,7 +33,8 @@ class DPSolver:
         self.seq = seq
         self.feasible = False
         self.solution = None
-
+        self.schedule = None
+        self.dist = 0
 
     def __repr__(self):
         return f"Seq: {self.seq}"
@@ -44,8 +45,10 @@ class DPSolver:
     def clear(self):
         self.states = []
         self.seq = []
+        self.schedule = []
         self.feasible = False
         self.solution = None
+        self.dist = 0
 
     def pop_state(self):
         self.states.pop()
@@ -122,6 +125,16 @@ class DPSolver:
             d2.append(self.distance(path[p + 1], path[p]))
         return d
 
+    def update(self, feasible=True):
+        if feasible:
+            self.feasible = True
+            self.schedule, self.dist = self.construct_from_states(self.states, return_distance=True)
+        else:
+            self.feasible = False
+            self.schedule, self.dist = None, None
+
+
+
 
     def construct_from_states(self, states, seq=None, return_path=False, return_distance=False):
         if seq is None:
@@ -174,10 +187,12 @@ class DPSolver:
 
         for s in seq:
             self.next(s)
-        sol = self.construct_from_states(self.states, return_path=return_path, return_distance=return_distance)
+        sol = self.construct_from_states(self.states, return_path=return_path, return_distance=True)
 
         if sol is not None:
             self.feasible = True
+            self.schedule = sol[0]
+            self.dist = sol[-1]
 
         return sol
 
