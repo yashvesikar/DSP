@@ -6,7 +6,7 @@ import numpy as np
 from dsp.EO.level_ga import load
 from dsp.Runner import SequenceSolver
 from dsp.Solver import solve_sequence
-from pymoo.algorithms.so_genetic_algorithm import GA
+from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.model.crossover import Crossover
 from pymoo.model.mutation import Mutation
 from pymoo.model.problem import Problem
@@ -18,15 +18,24 @@ class MOOProblem(Problem):
     def __init__(self, problem):
         self.ships = set(problem.ships_in_working_area()[1:])
         self.n_avail = len(self.ships)
-        super().__init__(n_var=1, n_obj=1, n_constr=1, elementwise_evaluation=True)
+        super().__init__(n_var=1, n_obj=2, n_constr=1, elementwise_evaluation=True)
         self.data = problem
 
     def _evaluate(self, x, out, *args, **kwargs):
-        seq = [0] + x[0] + [0]
+        val = x[0]
+        if isinstance(val, str):
+            val = [int(e) for e in val[1:-1].split(",")]
+
+        seq = [0] + val + [0]
         solver = solve_sequence(self.data, seq)
-        out["F"] = solver.dist
+        out["F"] = np.array([- float(len(val)), solver.dist])
         out["G"] = 0.0 if solver.feasible else 1.0
         out["solver"] = solver
+
+    def _calc_pareto_front(self, *args, **kwargs):
+        ideal = [0.0, 0.0]
+        nadir = [20.0, 210.0]
+        return np.row_stack([ideal, nadir])
 
 
 class MySampling(Sampling):
@@ -42,23 +51,21 @@ class MySampling(Sampling):
 
         X = []
         for level in ret:
-            seq = [e[-1][1:] for e in level[:n_each_seq]]
+            seq = [e[-1][1:-1] for e in level[:n_each_seq]]
             X.extend(seq)
 
-        return np.array(X, dtype=np.object)[:, None]
+        return [[str(row)] for row in X]
 
 
 def crossover(p_a, p_b, s_a):
     I = np.random.permutation(len(p_a))
     for i in I:
-        _start = max(i - 3, 0)
-        _end = min(i + 3, len(p_a))
-        J = np.array(range(_start, _end))
-        J = J[np.random.permutation(len(J))]
+        J = np.random.permutation(len(p_b))
 
         for j in J:
             prefix, suffix = p_a[:i], p_b[j:]
             suffix = [s for s in suffix if s not in prefix]
+            return prefix + suffix
 
             if len(suffix) > 0:
 
@@ -86,10 +93,12 @@ class MyCrossover(Crossover):
         X = []
         for k, (a, b) in enumerate(parents):
             s_a, s_b = solvers[a, 0], solvers[b, 0]
-            p_a, p_b = pop[a].X[0], pop[b].X[0]
+            p_a, p_b = s_a.seq[1:-1], s_b.seq[1:-1]
 
-            X.append([crossover(p_a, p_b, s_a)])
-            X.append([crossover(p_b, p_a, s_b)])
+            X.append(crossover(p_a, p_b, s_a))
+            X.append(crossover(p_b, p_a, s_b))
+
+        X = [[str(row)] for row in X]
 
         off = pop.new("X", X)
         return off
@@ -113,14 +122,12 @@ def func_is_duplicate(pop, *other, **kwargs):
     H = set()
     for e in other:
         for val in e:
-            s = str(val.X[0])
-            H.add(s)
+            H.add(val.X[0])
 
     for i, (val,) in enumerate(pop.get("X")):
-        s = str(val)
-        if s in H:
+        if val in H:
             is_duplicate[i] = True
-        H.add(s)
+        H.add(val)
 
     return is_duplicate
 
@@ -132,7 +139,7 @@ if __name__ == "__main__":
 
     my_problem = MOOProblem(problem)
 
-    algorithm = GA(
+    algorithm = NSGA2(
         pop_size=100,
         sampling=MySampling(),
         crossover=MyCrossover(),
@@ -141,8 +148,9 @@ if __name__ == "__main__":
 
     res = minimize(my_problem,
                    algorithm,
-                   ('n_gen', 100),
+                   ('n_gen', 10),
                    seed=1,
-                   verbose=False)
+                   verbose=True)
 
     print(res.F)
+    print(res.X)

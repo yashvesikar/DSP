@@ -122,7 +122,7 @@ class SequenceSolver:
 
                 # Feasible Solution updates
                 sol.update(feasible=True)  # Set the DP solver to feasible
-                sol.solution = (sol.dist, len(sol.states) - 2, sol.schedule)
+                sol.solution = (sol.dist, len(sol.states) - 2, sol.schedule, sol.seq)
 
                 # Update counters and trackers
                 if sol.dist < level_best_dist:
