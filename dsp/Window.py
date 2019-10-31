@@ -4,7 +4,7 @@ import copy
 from dsp.Solver import DPSolver, solve_sequence
 
 
-def sliding_window(k, n, S):
+def sliding_window(k, n, S, return_first=False):
     """
 
     :param k: Number of ships to expand by
@@ -31,6 +31,10 @@ def sliding_window(k, n, S):
             result = solve_sequence(problem=problem, seq=_seq)
             if result.feasible:
                 success += 1
+
+                # Return the first feasible solution
+                if return_first:
+                    return result
 
                 if result.dist < best_dist:
                     best_dist = result.dist
