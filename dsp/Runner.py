@@ -33,7 +33,7 @@ class SequenceSolver:
         available = set(np.nonzero(self.P.data[:T, :, 0])[1])
         return available
 
-    def sequence_search(self, available, truncation_args=None):
+    def sequence_search(self, available, truncation_args=None, verbose=True):
         """
 
         :param available:
@@ -88,7 +88,8 @@ class SequenceSolver:
                 Q, data = truncation(Q=Q, **truncation_args)
 
                 selected.append([l.solution for l in Q if l])
-                print(f"Finished Processing Level # {h + 1}")
+                if verbose:
+                    print(f"Finished Processing Level # {h + 1}")
                 # Update trackers
                 h += 1
                 best_dist.append(level_best_dist)
@@ -131,8 +132,9 @@ class SequenceSolver:
                 if h <= self.height_limit:
                     Q.append(sol)
             # ------------------------------------------------------------------------------------
+        if verbose:
+            print("Finished")
 
-        print("Finished")
         result = {}
         result["infeasible"] = infeasible
         result["everything"] = everything

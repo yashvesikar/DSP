@@ -2,10 +2,12 @@ import itertools
 
 import numpy as np
 from pymoo.algorithms.so_genetic_algorithm import GA
+from pymoo.factory import get_termination
 from pymoo.model.crossover import Crossover
 from pymoo.model.mutation import Mutation
 from pymoo.model.problem import Problem
 from pymoo.model.sampling import Sampling
+from pymoo.model.termination import SingleObjectiveToleranceBasedTermination
 from pymoo.optimize import minimize
 
 from dsp.Problem import Problem as ShipProblem
@@ -117,7 +119,6 @@ def load():
     return problem
 
 
-
 def my_sliding_window(k, n, S, return_first=False):
     success = 0
     fail = 0
@@ -125,19 +126,19 @@ def my_sliding_window(k, n, S, return_first=False):
     best_dist = 1e10
     best_solver = None
     n += 1
-    for i in range(len(seq)-n):
+    for i in range(len(seq) - n):
         avail = problem.ships_in_working_area(start=sched[i], end=sched[i + n])
-        avail = set(avail) - set(seq[:i+1] + seq[i+n:])
+        avail = set(avail) - set(seq[:i + 1] + seq[i + n:])
         if 0 in avail:
             avail.remove(0)
 
         sub_seq = list(itertools.permutations(avail, k))
 
         # MOD
-        sub_seq = [s for s in sub_seq if len(set(seq[i+1:i+n]) - set(s)) == 0]
+        sub_seq = [s for s in sub_seq if len(set(seq[i + 1:i + n]) - set(s)) == 0]
 
         for ship in sub_seq:
-            _seq = seq[:i+1] + list(ship) + seq[i+n:]
+            _seq = seq[:i + 1] + list(ship) + seq[i + n:]
             result = solve_sequence(problem=problem, seq=_seq)
             if result.feasible:
                 success += 1
@@ -156,29 +157,58 @@ def my_sliding_window(k, n, S, return_first=False):
     return best_solver
 
 
+class MyTermination(SingleObjectiveToleranceBasedTermination):
+
+    def _decide(self):
+        # now check the F space
+        current = self.history[0][1].mean()
+        last = self.history[-1][1].mean()
+
+        # the absolute difference of current to last f
+        f_tol_abs = last - current < self.f_tol_abs
+
+        return not f_tol_abs
 
 
 def transition(pop):
-    n_individuals, n_var = pop.get("X").shape
-
-    X = np.zeros((n_individuals, n_var+1), dtype=np.int)
+    X = []
 
     for k, ind in enumerate(pop):
         solver = ind.data["solver"][0]
-        X[k] = my_sliding_window(2, 1, solver, return_first=False).seq[1:-1]
+        res = my_sliding_window(2, 1, solver, return_first=False)
+        if res is not None:
+            X.append(res.seq[1:-1])
 
-    return X
+    return np.row_stack(X)
+
+
+def transition_simple(problem, pop):
+    X = []
+    for k, ind in enumerate(pop):
+        x = ind.X.tolist()
+
+        avail = set(problem.ships_in_working_area()) - set(ind.X) - set([0])
+        ship = np.random.choice(list(avail))
+
+        pos = np.random.randint(len(x))
+        x.insert(pos, ship)
+
+        X.append(x)
+
+
+    return np.row_stack(X)
+
 
 
 def solve(seq_length, sampling=None):
-
     if sampling is None:
         sampling = LevelOrderSampling()
 
     subproblem = FixedNumberOfShipsProblem(problem, seq_length)
+    termination = MyTermination(f_tol_abs=0.1)
 
     algorithm = GA(
-        pop_size=20,
+        pop_size=100,
         sampling=sampling,
         crossover=BinaryCrossover(),
         mutation=MyMutation(),
@@ -186,28 +216,43 @@ def solve(seq_length, sampling=None):
 
     res = minimize(subproblem,
                    algorithm,
-                   ('n_gen', 1),
+                   termination,
+                   # ('n_gen', 50),
                    seed=1,
                    verbose=False)
 
-    return res.X, res.F[0], res.pop
+    return res
 
 
 if __name__ == "__main__":
     problem = load()
 
-    res = solve_sequence(problem, [0, 33, 15,  8,  5, 44, 26, 56, 53, 32, 30, 63, 12, 23, 61, 28, 0])
+    np.random.seed(1)
+
+    # res = solve_sequence(problem, [0, 33, 15,  8,  5, 44, 26, 56, 53, 32, 30, 63, 12, 23, 61, 28, 0])
 
     ret = []
-    X, F, pop = solve(1)
-    n_ships = 2
 
-    while X is not None:
-        S = transition(pop)
+    n_ships = 1
 
-        X, F, pop = solve(n_ships, sampling=S)
-        print(n_ships, F, X)
+    while True:
 
+        if n_ships == 1:
+            res = solve(1)
+        else:
+            #S = transition_simple(problem, pop)
+            S = transition(pop)
+            res = solve(n_ships, sampling=S)
+
+        _X, _F, pop = res.X, res.F[0], res.pop
+
+        # prepare for the next iteration
+        I, X, F = pop.get("feasible", "X", "F")
+
+        print(n_ships, _F, _X.tolist(), res.algorithm.n_gen, len(I))
+
+        if len(I) == 0:
+            break
+
+        pop = pop[I[:, 0]]
         n_ships += 1
-
-
