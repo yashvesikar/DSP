@@ -122,6 +122,15 @@ class Problem:
         return self.ships[s]
 
 
+def load_problem(T=6):
+    # Data
+    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
+    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
+
+    xy_data = np.stack([x_data, y_data], axis=2)
+
+    P = Problem(xy_data, T=T)
+    return P
 
 if __name__ == "__main__":
     # Data

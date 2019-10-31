@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from dsp.Problem import Problem
+from dsp.Problem import Problem, load_problem
 from dsp.Visualize import Visualizer
 
 class State:
@@ -134,9 +134,15 @@ class DPSolver:
             self.schedule, self.dist = None, None
 
 
-
-
     def construct_from_states(self, states, seq=None, return_path=False, return_distance=False):
+        """
+
+        :param states:
+        :param seq:
+        :param return_path:
+        :param return_distance:
+        :return:
+        """
         if seq is None:
             seq = self.seq
 
@@ -173,30 +179,16 @@ class DPSolver:
         return result
 
     def initalize(self):
+        """
+
+        :return:
+        """
         self.seq.append(0)
         harbor = self.problem.get_ship(0)
         harbor_times = harbor.get_times(array=True)
         self.states.append(State(shape=harbor_times.shape, value=0))
 
-    def solve(self, seq=None, return_path=False, return_distance=False):
-
-        if seq is None:
-            seq = self.seq
-
-        assert len(seq) > 2 and seq[0] == 0 and seq[-1] == 0
-
-        for s in seq:
-            self.next(s)
-        sol = self.construct_from_states(self.states, return_path=return_path, return_distance=True)
-
-        if sol is not None:
-            self.feasible = True
-            self.schedule = sol[0]
-            self.dist = sol[-1]
-
-        return sol
-
-    def next(self, s):
+    def next(self, s, modify_seq=True):
 
         # At first the sequence will be empty, the first node added will be the harbor
         if len(self.states) <= 0 and s == 0:
@@ -209,7 +201,8 @@ class DPSolver:
             # If this path is infeasible do not continue, cut the branch
             return False
         # Append the new ship onto the sequence
-        self.seq.append(s)
+        if modify_seq:
+            self.seq.append(s)
         current_ship = self.problem.get_ship(s)
 
         # Get times and positions of the previous ship in the sequence
@@ -274,31 +267,23 @@ class DPSolver:
         self.states.append(_state)
         return True
 
+def solve_sequence(problem, seq, **kwargs):
+    solver = DPSolver(problem=problem, seq=[])
+
+    assert len(seq) > 2 and seq[0] == 0 and seq[-1] == 0
+
+    for s in seq:
+        solver.next(s)
+    sol = solver.construct_from_states(solver.states, return_path=False, return_distance=True)
+
+    if sol is not None:
+        solver.feasible = True
+        solver.schedule = sol[0]
+        solver.dist = sol[-1]
+
+    return solver
 
 if __name__ == "__main__":
-    # Data
-    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
-
-    xy_data = np.stack([x_data, y_data], axis=2)
-
-    P = Problem(xy_data)
-
-    # seq = [0, 8, 5, 30, 63, 4, 0]
-    # seq = [0, 1, 16, 2, 0]
+    P = load_problem(T=6)
     seq = [0, 32, 63, 4, 0]
-    # seq = [0, 33, 8, 44, 32, 4, 0]
-    # seq = [0, 56, 26, 33, 8, 12, 0]
-    # seq = [0, 15, 5, 8, 44, 38, 4, 12, 23, 61, 28, 0]
-    # seq = [0, 29, 32, 4, 0]
-    S = DPSolver(P, seq=[])
-
-    sched, dist = S.solve(seq=seq, return_distance=True)
-    print(sched, dist)
-    print(S.states[-1].distances[0])
-
-    Viz = Visualizer(P)
-    Viz.visualize_path(seq, sched)
-
-    ampl = S.match_ampl(seq, sched)
-    print(f"AMPL SOL: {ampl}")
+    solver = solve_sequence(problem=P, seq=seq)

@@ -8,8 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from dsp.Problem import Problem
-from dsp.Solver import DPSolver
+from dsp.Problem import Problem, load_problem
+from dsp.Solver import DPSolver, solve_sequence
 from dsp.Exploration import select_exploration
 from dsp.Truncation import select_truncation
 from dsp.Window import sliding_window
@@ -95,22 +95,7 @@ class SequenceSolver:
             # -------------------------------- Level processing ----------------------------
             if current is None:
                 if len(Q) == 0:
-                    if len(all_seq):
-
-                        previous_level = all_seq[-1]
-                        b = previous_level[:10]
-                        level_sequences = set()
-                        for s in b:
-                            S = DPSolver(P, seq=[])
-                            S.solve(s)
-                            for i in range(3):
-                                _s = sliding_window(i, i+1, S)   # Pass in the seq to the sliding window
-                                if _s and b[0] != _s.seq and tuple(_s.seq) not in level_sequences:
-                                    Q.append(_s)
-                                    level_sequences.add(tuple(_s.seq))
-
-                    if len(Q) == 0:
-                        break
+                    break
 
                 # Truncation
                 everything.append([l.solution for l in Q if l])
@@ -206,18 +191,8 @@ class SequenceSolver:
 
 
 if __name__ == "__main__":
-
-    # Time frame
-    T = 6
-
-    # Data
-    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
-
-    xy_data = np.stack([x_data, y_data], axis=2)
-
     # Create sequence solver object
-    P = Problem(xy_data, T=T)
+    P = load_problem(T=6)
     root = DPSolver(P, seq=[])
     ALPHA = set(P.in_working_area)
 

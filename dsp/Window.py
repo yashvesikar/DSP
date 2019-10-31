@@ -1,7 +1,8 @@
 import itertools
 import numpy as np
 import copy
-from dsp.Solver import DPSolver
+from dsp.Solver import DPSolver, solve_sequence
+
 
 def sliding_window(k, n, S):
     """
@@ -11,10 +12,8 @@ def sliding_window(k, n, S):
     :param S: DPSolver instance
     :return:
     """
-    S = copy.deepcopy(S)
     success = 0
     fail = 0
-    # S = DPSolver(problem=P, seq=[])
     seq, sched = S.seq, S.schedule
     P = S.problem
     best = 1e10
@@ -33,24 +32,22 @@ def sliding_window(k, n, S):
         for ship in sub_seq:
             _seq = seq[:i+1] + list(ship) + seq[i+n:]
 
-            S.clear()
-
-            result = S.solve(seq=_seq, return_distance=True)
+            # S.clear()
+            result = solve_sequence(problem=P, seq=_seq)
+            # result = S.solve(seq=_seq, return_distance=True)
             if result:
                 # print(f"Success: {_seq}, dist: {result[1]}")
                 success += 1
-                s, d = result
+                s, d = result.schedule, result.dist
                 if d < best:
                     best = d
                     best_solver = (_seq, s, d)
-                    best_solver_obj = copy.deepcopy(S)
+                    best_solver_obj = copy.deepcopy(result)
                     # best_solver = (_seq, s, d)
             else:
                 # print(f"Failed: {new_seq}")
                 fail += 1
 
-    # print(f"Success: {success}, Failure: {fail}")
-    # print(best_solver)
     return best_solver_obj
 
 
@@ -104,7 +101,7 @@ if __name__ == "__main__":
     truncation_args = {'limit': 1000, 'type': 'alpha'}
     exploration = None
 
-    S = DPSolver(problem=P, seq=[])
+    S = DPSolver(problem=P, seq=seq)
 
     start = time.time()
 
@@ -113,7 +110,7 @@ if __name__ == "__main__":
     # seq2 = [0, 8, 5, 30, 63, 4, 0]
     # seq = [0, 33, 15, 8, 5, 44, 26, 56, 53, 38, 4, 32, 30, 63, 12, 43, 7, 16, 23, 61, 28, 0]
     # seq = [0, 4, 0]
-    sched1, dist1 = S.solve(seq=seq, return_distance=True)
+    sched1, dist1 = S.solve(return_distance=True)
     sched1[-1] = P.m
     print(f"Length {len(sched1)-2} dist: {dist1}")
     S.clear()
