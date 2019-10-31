@@ -161,11 +161,11 @@ def my_sliding_window(k, n, S, return_first=False):
 def transition(pop):
     n_individuals, n_var = pop.get("X").shape
 
-    X = np.zeros((n_individuals, n_var+1))
+    X = np.zeros((n_individuals, n_var+1), dtype=np.int)
 
     for k, ind in enumerate(pop):
         solver = ind.data["solver"][0]
-        X[k] = my_sliding_window(2, 1, solver, return_first=True).seq[1:-1]
+        X[k] = my_sliding_window(2, 1, solver, return_first=False).seq[1:-1]
 
     return X
 
@@ -186,7 +186,7 @@ def solve(seq_length, sampling=None):
 
     res = minimize(subproblem,
                    algorithm,
-                   ('n_gen', 5),
+                   ('n_gen', 1),
                    seed=1,
                    verbose=False)
 
@@ -196,14 +196,17 @@ def solve(seq_length, sampling=None):
 if __name__ == "__main__":
     problem = load()
 
+    res = solve_sequence(problem, [0, 33, 15,  8,  5, 44, 26, 56, 53, 32, 30, 63, 12, 23, 61, 28, 0])
+
     ret = []
     X, F, pop = solve(1)
     n_ships = 2
 
     while X is not None:
         S = transition(pop)
+
         X, F, pop = solve(n_ships, sampling=S)
-        print(n_ships, F)
+        print(n_ships, F, X)
 
         n_ships += 1
 
