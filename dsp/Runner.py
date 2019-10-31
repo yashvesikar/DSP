@@ -19,9 +19,9 @@ np.random.seed(10)
 
 
 class SequenceSolver:
-    def __init__(self, root, problem, height_limit=5):
+    def __init__(self, problem, height_limit=5):
         self.P = problem
-        self.root = root
+        self.root = DPSolver(self.P, seq=[])
         self.height_limit = height_limit
         self.available = self.calculate_available()
 
@@ -33,19 +33,11 @@ class SequenceSolver:
         available = set(np.nonzero(self.P.data[:T, :, 0])[1])
         return available
 
-    def sequence_search(self,
-                        available,
-                        truncation_args=None,
-                        exploration_args=None,
-                        save=None):
+    def sequence_search(self, available, truncation_args=None):
         """
 
+        :param available:
         :param truncation_args:
-        :param exploration:
-        :param truncation:
-        :param problem:
-        :param available: Set of available ship ids
-        :param visited: set of visited ship ids
         :return:
         """
 
@@ -65,13 +57,6 @@ class SequenceSolver:
             truncation = select_truncation(truncation_args.get('exhaustive'))
         else:
             raise BaseException(f"No truncation submodule: {truncation_args.get('method')}")
-
-        if exploration_args and select_exploration(exploration_args.get('method')):
-            exploration = select_truncation(truncation_args.get('method'))
-        else:
-            exploration = None
-        # else:
-        #     raise BaseException(f"No exploration submodule: {exploration_args.get('method')}")
         # ------------------------------------------------------------------------------------
 
         # -------------------------------- Solution trackers ----------------------------
@@ -116,9 +101,6 @@ class SequenceSolver:
 
             # -------------------------------- Exploration & Evaluation ----------------------------
             avail = available - set(current.seq)
-            if exploration:
-                if current is not self.root:
-                    avail = exploration(avail=avail, current=current, problem=self.P)
 
             for s in avail:
                 total += 1
@@ -158,56 +140,21 @@ class SequenceSolver:
         result["best_dist"] = best_dist
         result["best_solver"] = best_solver
         result["total_evaluations"] = total
-        # if save and os.path.isdir(save):
-        #     # fname = os.path.basename(os.path.normpath(save))
-        #     with open(save, 'wb') as fp:
-        #         pickle.dump(result, fp, protocol=pickle.HIGHEST_PROTOCOL)
-        if False:
-
-            everything = [item for sublist in everything for item in sublist]
-            selected = [item for sublist in selected for item in sublist]
-
-            d = [l.solution[0] for l in everything if l]
-            a = [l.solution[1] for l in everything if l]
-            t = [l.solution[2] for l in everything if l]
-
-            d2 = [l.solution[0] for l in selected if l]
-            a2 = [l.solution[1] for l in selected if l]
-            t2 = [l.solution[2] for l in selected if l]
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-
-            ax.scatter(a, t, d, c='b', marker='.')
-            ax.scatter(a2, t2, d2, c='r', marker='.', alpha=0.5)
-
-            ax.set_xlabel('Alpha')
-            ax.set_ylabel('Time')
-            ax.set_zlabel('Distance')
-            plt.title(f"Exhaustive level {len(Q[0].states) - 2} - count {len(Q)} - {truncation_args.get('type')}")
-
-            plt.show()
         return result
 
 
 if __name__ == "__main__":
     # Create sequence solver object
     P = load_problem(T=6)
-    root = DPSolver(P, seq=[])
-    ALPHA = set(P.in_working_area)
+    ALPHA = set(P.ships_in_working_area())
 
-    SeqSolver = SequenceSolver(problem=P, root=root, height_limit=20)
-
-    # Create values for sequence search
+    SeqSolver = SequenceSolver(problem=P, height_limit=20)
 
     # truncation_args = {'limit': 1000, 'method': "decomposition", 'w': 0.306}
     truncation_args = {'limit': 10, 'method': "distance"}
-    exploration = None
 
     start = time.time()
-    method = 0
-    if method == 0:
-            result = SeqSolver.sequence_search(available=ALPHA,
-                                           truncation_args=truncation_args)
+
+    result = SeqSolver.sequence_search(available=ALPHA, truncation_args=truncation_args)
     end = time.time()
     print(f"{end - start}")

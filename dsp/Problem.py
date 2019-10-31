@@ -44,7 +44,6 @@ class Problem:
         self.m = np.floor((T/w) + 0.1)
         self.T = T
         self.construct(xy_data, T)
-        self.in_working_area = self.ships_in_working_area()
 
     def get_ships_positions(self, S):
         """
