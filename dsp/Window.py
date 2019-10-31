@@ -19,7 +19,7 @@ def sliding_window(k, n, S):
     best_solver = None
     n += 1
     for i in range(len(seq)-n):
-        avail = P.ships_in_working_area(start=sched[i], end=sched[i + n])
+        avail = problem.ships_in_working_area(start=sched[i], end=sched[i + n])
         avail = set(avail) - set(seq[:i+1] + seq[i+n:])
         if 0 in avail:
             avail.remove(0)
@@ -28,7 +28,7 @@ def sliding_window(k, n, S):
 
         for ship in sub_seq:
             _seq = seq[:i+1] + list(ship) + seq[i+n:]
-            result = solve_sequence(problem=P, seq=_seq)
+            result = solve_sequence(problem=problem, seq=_seq)
             if result.feasible:
                 success += 1
 
