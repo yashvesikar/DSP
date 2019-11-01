@@ -1,4 +1,5 @@
 import copy
+import itertools
 from math import ceil
 
 import numpy as np
@@ -24,6 +25,7 @@ class MOOProblem(Problem):
     def _evaluate(self, x, out, *args, **kwargs):
         val = x[0]
         if isinstance(val, str):
+            # print(val)
             val = [int(e) for e in val[1:-1].split(",")]
 
         seq = [0] + val + [0]
@@ -65,7 +67,7 @@ def crossover(p_a, p_b, s_a):
         for j in J:
             prefix, suffix = p_a[:i], p_b[j:]
             suffix = [s for s in suffix if s not in prefix]
-            return prefix + suffix
+            # return prefix + suffix
 
             if len(suffix) > 0:
 
@@ -103,11 +105,39 @@ class MyCrossover(Crossover):
         off = pop.new("X", X)
         return off
 
+class MOOMutation(Mutation):
 
-class MyMutation(Mutation):
     def do(self, problem, pop, **kwargs):
-        return pop.new("X", pop.get("X"))
+        X = pop.get("X")
 
+        for k, off in enumerate(X):
+            off = off[0]
+            if isinstance(off, str):
+                off = [int(e) for e in off[1:-1].split(",")]
+            ind = np.random.randint(0, len(off))
+            _start = problem.data.get_ship(off[max(0, ind - 1)]).times[0]
+            _end = problem.data.get_ship(off[min(len(off)-1, ind + 1)]).times[-1]
+
+            avail = set(problem.data.ships_in_working_area(start=_start, end=_end)) - set(
+                off[:ind] + off[ind + 1:]) - set([0])
+
+            choice = np.random.randint(0, 3)
+            if choice == 0:
+                # Grow
+                sub_seq = np.array(list(avail))[np.random.permutation(len(avail))[:1]]
+                X[k] = str(off[:ind] + sub_seq.tolist() + off[ind + 1:])
+
+            elif choice == 1:
+                # Shrink
+                pass
+                # if len(off) > 1:
+                #     X[k] = str(off[:ind] + off[ind + 1:])
+            else:
+                # Permute
+                sub_seq = np.array(list(avail))[np.random.permutation(len(avail))[:1]]
+                X[k] = str(off[:ind] + sub_seq.tolist() + off[ind + 1:])
+
+        return pop.new("X", X)
 
 # the input is the current population and a list of other populations.
 # the function returns if an individual in pop is equal to any other individual
@@ -143,14 +173,16 @@ if __name__ == "__main__":
         pop_size=100,
         sampling=MySampling(),
         crossover=MyCrossover(),
-        mutation=MyMutation(),
+        mutation=MOOMutation(),
         eliminate_duplicates=func_is_duplicate)
 
     res = minimize(my_problem,
                    algorithm,
-                   ('n_gen', 10),
+                   ('n_gen', 230),
                    seed=1,
                    verbose=True)
-
-    print(res.F)
-    print(res.X)
+    I = np.argsort(-res.F[:, 0])
+    for i in I:
+        print(f"{int(-res.F[i, 0])} - {res.F[i, 1]} -- {res.X[i]}")
+    # print(res.F[I])
+    # print(res.X[I])

@@ -4,6 +4,7 @@ import copy
 from dsp.Solver import DPSolver, solve_sequence
 
 
+
 def sliding_window(k, n, S, return_first=False):
     """
 
@@ -46,28 +47,42 @@ def sliding_window(k, n, S, return_first=False):
     return best_solver
 
 
-def sliding_window_solver(k, n, solver):
-    levels = []
-    finished = False
-    mode = 'grow'
+def ping_pong_solver(solvers):
 
-    solver = copy.deepcopy(solver)
+    finished = False
+    mode = 'opt'
+    solver_ind = 0
+    solver = solvers[solver_ind]
+    levels = [s.dist for s in solvers]
+    improved = False
     while not finished:
 
         if mode == 'grow':
-            for i in range(3):
-                sliding_window()
-    #         for i in range(3):
-    #             _s = sliding_window(i, i + 1, S)  # Pass in the seq to the sliding window
-    #             if _s and b[0] != _s.seq and tuple(_s.seq) not in level_sequences:
-    #                 Q.append(_s)
-    #                 level_sequences.add(tuple(_s.seq))
-    #
-    #         pass
-    #     elif mode == 'shrink':
-    #         pass
-    #     else:
-    #         print("finished")
+            res = sliding_window(2, 1, solver)
+            if res.dist < levels[len(res.seq)-2]:
+                levels[len(res.seq)-2] = res.dist
+                solvers[len(res.seq) - 2] = res
+                improved = True
+            if improved:
+                mode = 'opt'
+
+        # elif mode == 'shrink':
+        #     res = sliding_window(1, 2, solver)
+
+        elif mode == 'opt':
+            for i in range(min(len(solver.seq)-2, 3)):
+                res = sliding_window(i, i, solver)
+                if res.dist < levels[len(res.seq)-3]:
+                    levels[len(res.seq) - 2] = res.dist
+                    solvers[len(res.seq) - 2] = res
+                    improved = True
+
+            if not improved:
+                mode = 'grow'
+                solver_ind += 1
+                solver = solvers[solver_ind]
+            else:
+                improved = False
 
 
 if __name__ == "__main__":
@@ -79,13 +94,10 @@ if __name__ == "__main__":
 
     # Create sequence solver object
     P = load_problem()
+    truncation_args = {'limit': 100, 'method': "distance"}
+    ALPHA = set(P.ships_in_working_area())
+    SeqSolver = SequenceSolver(problem=P, height_limit=15)
+    result = SeqSolver.sequence_search(available=ALPHA, truncation_args=truncation_args)
 
-    start = time.time()
-    seq = [0, 32, 63, 12, 0]  # Should yield [0, 32, 63, 4, 0] as optimal
-    solver = solve_sequence(problem=P, seq=seq)
-    # seq2 = [0, 32, 30, 63, 4, 0]
-    # seq2 = [0, 8, 5, 30, 63, 4, 0]
-    # seq = [0, 33, 15, 8, 5, 44, 26, 56, 53, 38, 4, 32, 30, 63, 12, 43, 7, 16, 23, 61, 28, 0]
-    # seq = [0, 4, 0]
-    result = sliding_window(2, 1, solver)
+    result = ping_pong_solver(result["best_solver"])
     print(result)

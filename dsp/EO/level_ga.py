@@ -11,7 +11,7 @@ from pymoo.model.termination import SingleObjectiveToleranceBasedTermination
 from pymoo.optimize import minimize
 
 from dsp.Problem import Problem as ShipProblem
-from dsp.Runner import SequenceSolver
+# from dsp.Runner import SequenceSolver
 from dsp.Solver import DPSolver, solve_sequence
 from dsp.Window import sliding_window
 

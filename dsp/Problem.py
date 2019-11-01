@@ -127,8 +127,8 @@ class Problem:
 
 def load_problem(T=6):
     # Data
-    x_data = np.genfromtxt("../data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("../data/y.csv", delimiter=",")
+    x_data = np.genfromtxt("/Users/yashvesikar/Documents/Research/DSP/DSP/data/x.csv", delimiter=",")
+    y_data = np.genfromtxt("/Users/yashvesikar/Documents/Research/DSP/DSP/data/y.csv", delimiter=",")
 
     xy_data = np.stack([x_data, y_data], axis=2)
 

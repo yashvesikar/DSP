@@ -8,14 +8,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+from dsp.EO.level_ga import my_sliding_window
 from dsp.Problem import Problem, load_problem
 from dsp.Solver import DPSolver, solve_sequence
-from dsp.Exploration import select_exploration
 from dsp.Truncation import select_truncation
-from dsp.Window import sliding_window
+# from dsp.Window import sliding_window
 
 ALPHA = np.arange(1, 64)
 np.random.seed(10)
+
+def repopulate_queue(Q, solutions):
+    rand = np.random.permutation(len(solutions))
+    old_pop = [solutions[rand[i]] for i in range(10)]
+    problem = load_problem()
+    for s in old_pop:
+        if s:
+            solver = solve_sequence(problem, s[-1])
+            if solver.feasible:
+                res = my_sliding_window(2, 1, solver, return_first=False)
+                if res.feasible:
+                    Q.append(res)
+
+
 
 
 class SequenceSolver:
@@ -80,16 +94,15 @@ class SequenceSolver:
             # -------------------------------- Level processing ----------------------------
             if current is None:
                 if len(Q) == 0:
+                    # repopulate_queue(Q=Q, solutions=everything[-1])
                     break
-
                 # Truncation
                 everything.append([l.solution for l in Q if l])
                 all_seq.append([l.seq for l in Q if l])
                 Q, data = truncation(Q=Q, **truncation_args)
 
                 selected.append([l.solution for l in Q if l])
-                if verbose:
-                    print(f"Finished Processing Level # {h + 1}")
+                # print(f"Finished Processing Level # {h + 1} - {level_best_dist} - {level_best_solver.seq}")
                 # Update trackers
                 h += 1
                 best_dist.append(level_best_dist)
@@ -111,8 +124,10 @@ class SequenceSolver:
                 if len(sol.states) > 1:
                     sol.pop_state()
 
-                if sol.next(s) is False: continue
-                if sol.next(0) is False: continue
+                if sol.next(s) is False:
+                    continue
+                if sol.next(0) is False:
+                    continue
 
                 # Feasibility checks
                 last_state = sol.get_last_state()
@@ -151,10 +166,10 @@ if __name__ == "__main__":
     P = load_problem(T=6)
     ALPHA = set(P.ships_in_working_area())
 
-    SeqSolver = SequenceSolver(problem=P, height_limit=4)
+    SeqSolver = SequenceSolver(problem=P, height_limit=20)
 
     # truncation_args = {'limit': 1000, 'method': "decomposition", 'w': 0.306}
-    truncation_args = {'limit': 100, 'method': "distance"}
+    truncation_args = {'limit': 1000, 'method': "distance"}
 
     start = time.time()
 
