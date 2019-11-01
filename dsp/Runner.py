@@ -1,18 +1,14 @@
 import copy
-import os
-import pickle
 import time
 from collections import deque
 
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from dsp.EO.level_ga import my_sliding_window
-from dsp.Problem import Problem, load_problem
+from dsp.Problem import load_problem
 from dsp.Solver import DPSolver, solve_sequence
 from dsp.Truncation import select_truncation
-# from dsp.Window import sliding_window
+
 
 ALPHA = np.arange(1, 64)
 np.random.seed(10)

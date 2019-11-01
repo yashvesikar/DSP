@@ -56,7 +56,8 @@ class MySampling(Sampling):
             seq = [e[-1][1:-1] for e in level[:n_each_seq]]
             X.extend(seq)
 
-        return [[str(row)] for row in X]
+        X = np.array(X, dtype=np.object)[:, None]
+        return X
 
 
 def crossover(p_a, p_b, s_a):
@@ -67,7 +68,7 @@ def crossover(p_a, p_b, s_a):
         for j in J:
             prefix, suffix = p_a[:i], p_b[j:]
             suffix = [s for s in suffix if s not in prefix]
-            # return prefix + suffix
+            return list(prefix) + list(suffix)
 
             if len(suffix) > 0:
 
@@ -82,7 +83,7 @@ def crossover(p_a, p_b, s_a):
                 if solver.feasible:
                     return prefix + suffix
 
-    return p_a
+    return p_a.tolist()
 
 
 class MyCrossover(Crossover):
@@ -97,35 +98,39 @@ class MyCrossover(Crossover):
             s_a, s_b = solvers[a, 0], solvers[b, 0]
             p_a, p_b = s_a.seq[1:-1], s_b.seq[1:-1]
 
-            X.append(crossover(p_a, p_b, s_a))
-            X.append(crossover(p_b, p_a, s_b))
+            X.append([crossover(p_a, p_b, s_a)])
+            X.append([crossover(p_b, p_a, s_b)])
 
-        X = [[str(row)] for row in X]
+        return safe_pop(pop.new("X", X))
 
-        off = pop.new("X", X)
-        return off
+
+
+def safe_pop(pop):
+    for ind in pop:
+        if isinstance(ind.X[0], np.ndarray):
+            ind.X = [ind.X[0].tolist()]
+    return pop
+
 
 class MOOMutation(Mutation):
 
     def do(self, problem, pop, **kwargs):
-        X = pop.get("X")
 
-        for k, off in enumerate(X):
-            off = off[0]
-            if isinstance(off, str):
-                off = [int(e) for e in off[1:-1].split(",")]
-            ind = np.random.randint(0, len(off))
-            _start = problem.data.get_ship(off[max(0, ind - 1)]).times[0]
-            _end = problem.data.get_ship(off[min(len(off)-1, ind + 1)]).times[-1]
+        for k, off in enumerate(pop):
+            X = off.X[0]
+
+            ind = np.random.randint(0, len(X))
+            _start = problem.data.get_ship(X[max(0, ind - 1)]).times[0]
+            _end = problem.data.get_ship(X[min(len(X)-1, ind + 1)]).times[-1]
 
             avail = set(problem.data.ships_in_working_area(start=_start, end=_end)) - set(
-                off[:ind] + off[ind + 1:]) - set([0])
+                X[:ind] + X[ind + 1:]) - set([0])
 
             choice = np.random.randint(0, 3)
             if choice == 0:
                 # Grow
                 sub_seq = np.array(list(avail))[np.random.permutation(len(avail))[:1]]
-                X[k] = str(off[:ind] + sub_seq.tolist() + off[ind + 1:])
+                off.X[0] = X[:ind] + sub_seq.tolist() + X[ind + 1:]
 
             elif choice == 1:
                 # Shrink
@@ -135,9 +140,11 @@ class MOOMutation(Mutation):
             else:
                 # Permute
                 sub_seq = np.array(list(avail))[np.random.permutation(len(avail))[:1]]
-                X[k] = str(off[:ind] + sub_seq.tolist() + off[ind + 1:])
+                off.X[0] = X[:ind] + sub_seq.tolist() + X[ind + 1:]
 
-        return pop.new("X", X)
+        return safe_pop(pop)
+
+
 
 # the input is the current population and a list of other populations.
 # the function returns if an individual in pop is equal to any other individual
@@ -152,12 +159,12 @@ def func_is_duplicate(pop, *other, **kwargs):
     H = set()
     for e in other:
         for val in e:
-            H.add(val.X[0])
+            H.add(str(val.X[0]))
 
     for i, (val,) in enumerate(pop.get("X")):
-        if val in H:
+        if str(val) in H:
             is_duplicate[i] = True
-        H.add(val)
+        H.add(str(val))
 
     return is_duplicate
 
