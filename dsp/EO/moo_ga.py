@@ -46,8 +46,8 @@ class MySampling(Sampling):
         level_order_solver = SequenceSolver(problem=problem.data, height_limit=1000)
         truncation_args = {'limit': 25, 'method': "distance"}
 
-        ret = level_order_solver.sequence_search(available=problem.ships,
-                                                 truncation_args=truncation_args, verbose=False)["selected"]
+        ret = level_order_solver.solve(available=problem.ships,
+                                       truncation_args=truncation_args, verbose=False)["selected"]
 
         n_each_seq = ceil(n_samples / len(ret))
 

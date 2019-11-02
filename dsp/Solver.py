@@ -25,22 +25,32 @@ class State:
         # self.positions[self.i] = pos
         self.i += 1
 
+class Result:
+    def __init__(self):
+        self.feasible = False
+        self.seq = None
+        self.schedule = None
+        self.distance = None
 
 class DPSolver:
-    def __init__(self, problem, seq, states=None):
+    def __init__(self, problem, **kwargs):
         self.problem = problem
-        self.states = states if states is not None else []
-        self.seq = seq
-        self.feasible = False
-        self.solution = None
-        self.schedule = None
-        self.dist = 0
+        self.states = kwargs.get('states') if kwargs.get('states') is not None else []
+        self.seq = kwargs.get('seq')
+        self.result = None
+        # self.feasible = False
+        # self.solution = None
+        # self.schedule = kwargs.get('schedule')
+        # self.dist = 0
 
     def __repr__(self):
         return f"Seq: {self.seq}"
 
     def __copy__(self):
-        return DPSolver(problem=self.problem, seq=self.seq[:], states=self.states[:])
+        obj = DPSolver(self.problem)
+        obj.seq = self.seq[:]
+        obj.states = self.states[:]
+        return obj
 
     def clear(self):
         self.states = []
@@ -54,7 +64,7 @@ class DPSolver:
         self.states.pop()
         self.seq.pop()
 
-    def get_last_state(self):
+    def last_state(self):
         if self.states:
             return self.states[-1]
         return None
@@ -66,15 +76,6 @@ class DPSolver:
     @staticmethod
     def distance(n1, n2):
         return math.sqrt((n1[0] - n2[0]) ** 2 + (n1[1] - n2[1]) ** 2)
-
-    @staticmethod
-    def travel_time(d):
-        v = 46.3  # in km/h
-        t = d / v
-
-        w = 5 / 60
-
-        return t / w
 
     def get_most_recent_time_pos(self):
         """
@@ -107,7 +108,7 @@ class DPSolver:
 
         return d
 
-    def match_ampl(self, seq, times):
+    def simulate_path(self, seq, times):
         x = []
         y = []
 
@@ -125,57 +126,51 @@ class DPSolver:
             d2.append(self.distance(path[p + 1], path[p]))
         return d
 
-    def update(self, feasible=True):
+    def update_final_state(self, feasible=True):
         if feasible:
             self.feasible = True
-            self.schedule, self.dist = self.construct_from_states(self.states, return_distance=True)
+            self.schedule, self.dist = self.get_result(self.states, return_distance=True)
         else:
             self.feasible = False
             self.schedule, self.dist = None, None
 
 
-    def construct_from_states(self, states, seq=None, return_path=False, return_distance=False):
+    def get_result(self, **kwargs):
         """
 
-        :param states:
-        :param seq:
-        :param return_path:
-        :param return_distance:
+        :param kwargs:
         :return:
         """
-        if seq is None:
-            seq = self.seq
+        if self.result and self.result.seq == self.seq:
+            return self.result
 
+        result = Result()
+        seq = self.seq
+        states = self.states
+
+        # Infeasible solution
         if len(states) != len(seq) or len(states[-1]) == 0:
-            # Infeasible solution
             return None
 
-        def construct_path_from_schedule(sched):
-            path = []
-            for t, s in zip(sched, seq):
-                ship = self.problem.get_ship(s)
-                path.append(ship.get_position(int(t)))
-
-            return path
-
-        schedule = []
-        result = []
         prev_index = -1
+        schedule = []
         for state in states[::-1]:
             schedule.append(state.schedule[prev_index])
             prev_index = int(state.indexes[prev_index])
 
         schedule = schedule[::-1]
-        result.append(schedule)
-        if return_path:
-            path = construct_path_from_schedule(schedule)
-            result.append(path)
+        path = []
+        for t, s in zip(schedule, seq):
+            ship = self.problem.get_ship(s)
+            path.append(ship.get_position(int(t)))
 
-        if return_distance:
-            pos = construct_path_from_schedule(schedule)
-            dist = self.path_distance(pos)
-            result.append(dist)
+        if len(schedule) == len(seq):
+            result.feasible = True
 
+        result.seq = seq
+        result.schedule = schedule
+        result.path = path
+        result.distance = self.path_distance(path)
         return result
 
     def initalize(self):
@@ -265,7 +260,9 @@ class DPSolver:
         _state.distances = total_distance[feasible, _state.indexes]
         _state.times = total_time_to_next[feasible, _state.indexes]
         self.states.append(_state)
-        return True
+        if len(feasible) > 0:
+            return True
+        return False
 
 def solve_sequence(problem, seq, **kwargs):
     solver = DPSolver(problem=problem, seq=[])
@@ -275,12 +272,10 @@ def solve_sequence(problem, seq, **kwargs):
     for s in seq:
         solver.next(s)
 
-    sol = solver.construct_from_states(solver.states, return_path=False, return_distance=True)
+    result = solver.get_result()
 
-    if sol is not None:
-        solver.feasible = True
-        solver.schedule = sol[0]
-        solver.dist = sol[-1]
+    if result and result.feasible:
+        solver.result = result
 
     return solver
 

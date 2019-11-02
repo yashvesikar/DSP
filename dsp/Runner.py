@@ -1,14 +1,11 @@
 import copy
-import os
-import pickle
 import time
 from collections import deque
 
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from dsp.EO.level_ga import my_sliding_window
+from dsp.Model import Optimizer
 from dsp.Problem import Problem, load_problem
 from dsp.Solver import DPSolver, solve_sequence
 from dsp.Truncation import select_truncation
@@ -33,42 +30,73 @@ def repopulate_queue(Q, solutions):
 
 
 class SequenceSolver:
-    def __init__(self, problem, height_limit=5):
-        self.P = problem
-        self.root = DPSolver(self.P, seq=[])
-        self.height_limit = height_limit
-        self.available = self.calculate_available()
+    def __init__(self, **kwargs):
+        # super().__init__(**kwargs)
+        self.problem = kwargs.get('problem')
+        self.root = DPSolver(self.problem, seq=[])
+        self.max_depth = kwargs.get('max_height')
+        self.available = set(self.problem.ships_in_working_area())
+        self.truncation_args = kwargs.get('truncation_args')
+
+        # Solution Trackers
+        self.best_distances = []
+        self.best_solvers = []
 
         # Final results
         self.results = {}
 
-    def calculate_available(self):
-        T = self.P.T
-        available = set(np.nonzero(self.P.data[:T, :, 0])[1])
-        return available
+    def _next(self, current, Q, depth):
+        best_distance = 1e10
+        best_solver = None
 
-    def sequence_search(self, available, truncation_args=None, verbose=True):
+        avail = self.available - set(current.seq)
+
+        for s in avail:
+
+            # Solution generation and evaluation
+            sol = copy.copy(current)
+            if len(sol.states) > 1:
+                sol.pop_state()
+
+            if sol.next(s) is False:
+                continue
+            if sol.next(0) is False:
+                continue
+
+            # Feasibility checks
+            last_state = sol.last_state()
+            if not last_state or len(last_state) == 0:
+                continue
+
+            # Feasible Solution updates
+            result = sol.get_result()
+            sol.result = result
+
+            # Update counters and trackers
+            if result.distance < best_distance:
+                best_distance = result.distance
+                best_solver = sol
+
+            if depth <= self.max_depth:
+                Q.append(sol)
+        return Q, best_distance, best_solver
+
+    def solve(self):
         """
 
-        :param available:
-        :param truncation_args:
         :return:
         """
 
         # Set the harbor
         self.root.next(0)
-        h = 0  # Height counter
+        depth = 0  # Height counter
         Q = deque([self.root, None])
-        infeasible = 0
-        total = 0
-
-        # For plotting
 
         # ------------------------------------- Submodules -----------------------------------
-        if select_truncation(truncation_args.get('method')):
-            truncation = select_truncation(truncation_args.get('method'))
+        if select_truncation(self.truncation_args.get('method')):
+            truncation = select_truncation(self.truncation_args.get('method'))
         elif truncation_args.get('method') is None:
-            truncation = select_truncation(truncation_args.get('exhaustive'))
+            truncation = select_truncation('exhaustive')
         else:
             raise BaseException(f"No truncation submodule: {truncation_args.get('method')}")
         # ------------------------------------------------------------------------------------
@@ -78,14 +106,8 @@ class SequenceSolver:
         everything = []
         selected = []
         all_seq = []
-
-        # Overall Best
-        best_dist = [0]
-        best_solver = [self.root]
-
-        # Best on current level
-        level_best_dist = 1e10
-        level_best_solver = None
+        best_distance = 1e10
+        best_solver = None
         # ------------------------------------------------------------------------------------
         while len(Q) > 0:
 
@@ -97,82 +119,45 @@ class SequenceSolver:
                     # repopulate_queue(Q=Q, solutions=everything[-1])
                     break
                 # Truncation
-                everything.append([l.solution for l in Q if l])
-                all_seq.append([l.seq for l in Q if l])
-                Q, data = truncation(Q=Q, **truncation_args)
+                # everything.append([l.solution for l in Q if l])
+                # all_seq.append([l.seq for l in Q if l])
+                Q, data = truncation(Q=Q, **self.truncation_args)
 
-                selected.append([l.solution for l in Q if l])
-                # print(f"Finished Processing Level # {h + 1} - {level_best_dist} - {level_best_solver.seq}")
+                # selected.append([l.solution for l in Q if l])
+                print(f"Finished Processing Level # {depth + 1} - {best_distance} - {best_solver.seq}")
+
                 # Update trackers
-                h += 1
-                best_dist.append(level_best_dist)
-                level_best_dist = 1e10
-                best_solver.append(level_best_solver)
-                if h >= self.height_limit:
+                depth += 1
+                self.best_distances.append(best_distance)
+                best_distance = 1e10
+                self.best_solvers.append(best_solver)
+                if depth >= self.max_depth:
                     break
                 continue
+            # -------------------------------- Exploration & Evaluation --------------------------
+            Q, bd, bs = self._next(current=current, Q=Q, depth=depth)
+            if bd <= best_distance:
+                best_distance = bd
+                best_solver = bs
             # ------------------------------------------------------------------------------------
-
-            # -------------------------------- Exploration & Evaluation ----------------------------
-            avail = available - set(current.seq)
-
-            for s in avail:
-                total += 1
-
-                # Solution generation and evaluation
-                sol = copy.copy(current)
-                if len(sol.states) > 1:
-                    sol.pop_state()
-
-                if sol.next(s) is False:
-                    continue
-                if sol.next(0) is False:
-                    continue
-
-                # Feasibility checks
-                last_state = sol.get_last_state()
-                if not last_state or len(last_state) == 0:
-                    infeasible += 1
-                    continue
-
-                # Feasible Solution updates
-                sol.update(feasible=True)  # Set the DP solver to feasible
-                sol.solution = (sol.dist, len(sol.states) - 2, sol.schedule, sol.seq)
-
-                # Update counters and trackers
-                if sol.dist < level_best_dist:
-                    level_best_dist = sol.dist
-                    level_best_solver = sol
-
-                if h <= self.height_limit:
-                    Q.append(sol)
-            # ------------------------------------------------------------------------------------
-        if verbose:
-            print("Finished")
 
         result = {}
-        result["infeasible"] = infeasible
-        result["everything"] = everything
-        result["selected"] = selected
-        result["best_dist"] = best_dist
-        result["best_solver"] = best_solver
-        result["all_seq"] = all_seq
-        result["total_evaluations"] = total
+        result["results"] = self.best_distances
+        result["solvers"] = self.best_solvers
         return result
 
 
 if __name__ == "__main__":
     # Create sequence solver object
     P = load_problem(T=6)
-    ALPHA = set(P.ships_in_working_area())
 
-    SeqSolver = SequenceSolver(problem=P, height_limit=20)
+    truncation_args = {'limit': 1000, 'method': "distance"}
+    SeqSolver = SequenceSolver(problem=P, max_height=10, truncation_args=truncation_args)
 
     # truncation_args = {'limit': 1000, 'method': "decomposition", 'w': 0.306}
-    truncation_args = {'limit': 1000, 'method': "distance"}
 
     start = time.time()
 
-    result = SeqSolver.sequence_search(available=ALPHA, truncation_args=truncation_args)
+    result = SeqSolver.solve()
     end = time.time()
     print(f"{end - start}")

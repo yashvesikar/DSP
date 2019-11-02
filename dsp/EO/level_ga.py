@@ -51,7 +51,7 @@ class LevelOrderSampling(Sampling):
         level_order_solver = SequenceSolver(problem=problem.data, height_limit=problem.n_var)
         truncation_args = {'limit': 100, 'method': "distance"}
 
-        result = level_order_solver.sequence_search(available=problem.ships, truncation_args=truncation_args)
+        result = level_order_solver.solve(available=problem.ships, truncation_args=truncation_args)
 
         X = np.array([e[1:-1] for e in result['all_seq'][-1]])
         X = X[np.random.permutation(len(X))[:n_samples]]
