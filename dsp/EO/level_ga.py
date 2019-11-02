@@ -1,19 +1,17 @@
 import itertools
 
 import numpy as np
+
+from dsp.Problem import Problem as ShipProblem
+
+from dsp.Solver import solve_sequence
 from pymoo.algorithms.so_genetic_algorithm import GA
-from pymoo.factory import get_termination
 from pymoo.model.crossover import Crossover
 from pymoo.model.mutation import Mutation
 from pymoo.model.problem import Problem
 from pymoo.model.sampling import Sampling
 from pymoo.model.termination import SingleObjectiveToleranceBasedTermination
 from pymoo.optimize import minimize
-
-from dsp.Problem import Problem as ShipProblem
-# from dsp.Runner import SequenceSolver
-from dsp.Solver import DPSolver, solve_sequence
-from dsp.Window import sliding_window
 
 
 class FixedNumberOfShipsProblem(Problem):
@@ -48,6 +46,7 @@ class MySampling(Sampling):
 class LevelOrderSampling(Sampling):
 
     def _do(self, problem, n_samples, **kwargs):
+        from dsp.Runner import SequenceSolver
         level_order_solver = SequenceSolver(problem=problem.data, height_limit=problem.n_var)
         truncation_args = {'limit': 100, 'method': "distance"}
 

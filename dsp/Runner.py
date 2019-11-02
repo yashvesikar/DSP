@@ -9,7 +9,7 @@ from dsp.Model import Optimizer
 from dsp.Problem import Problem, load_problem
 from dsp.Solver import DPSolver, solve_sequence
 from dsp.Truncation import select_truncation
-# from dsp.Window import sliding_window
+
 
 ALPHA = np.arange(1, 64)
 np.random.seed(10)
