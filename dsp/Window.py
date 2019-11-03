@@ -166,7 +166,7 @@ def ping_pong_solver(solvers, fast=False):
 if __name__ == "__main__":
     from dsp.Problem import Problem, load_problem
     from dsp.Solver import DPSolver
-    from dsp.Runner import SequenceSolver
+    from dsp.HTSolver import HeuristicTreeSolver
     import time
     import pprint as pp
 

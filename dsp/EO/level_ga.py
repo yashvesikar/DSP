@@ -29,8 +29,8 @@ class FixedNumberOfShipsProblem(Problem):
     def _evaluate(self, x, out, *args, algorithm=None, **kwargs):
         seq = [0] + x.tolist() + [0]
         solver = solve_sequence(self.data, seq)
-        out["F"] = solver.dist
-        out["G"] = 0.0 if solver.feasible else 1.0
+        out["F"] = solver.result.distance
+        out["G"] = 0.0 if solver.result.feasible else 1.0
         out["solver"] = solver
 
 
@@ -46,13 +46,14 @@ class MySampling(Sampling):
 class LevelOrderSampling(Sampling):
 
     def _do(self, problem, n_samples, **kwargs):
-        from dsp.Runner import SequenceSolver
-        level_order_solver = SequenceSolver(problem=problem.data, height_limit=problem.n_var)
+        from dsp.HTSolver import HeuristicTreeSolver
         truncation_args = {'limit': 100, 'method': "distance"}
+        level_order_solver = HeuristicTreeSolver(problem=problem.data, max_depth=problem.n_var, truncation_args=truncation_args)
 
-        result = level_order_solver.solve(available=problem.ships, truncation_args=truncation_args)
 
-        X = np.array([e[1:-1] for e in result['all_seq'][-1]])
+        result = level_order_solver.solve()
+
+        X = np.array([e.seq[1:-1] for e in result['selected'][-1]])
         X = X[np.random.permutation(len(X))[:n_samples]]
 
         return X

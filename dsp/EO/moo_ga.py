@@ -5,7 +5,7 @@ from math import ceil
 import numpy as np
 
 from dsp.EO.level_ga import load
-from dsp.Runner import SequenceSolver
+from dsp.HTSolver import HeuristicTreeSolver
 from dsp.Solver import solve_sequence
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.model.crossover import Crossover
@@ -30,8 +30,8 @@ class MOOProblem(Problem):
 
         seq = [0] + val + [0]
         solver = solve_sequence(self.data, seq)
-        out["F"] = np.array([- float(len(val)), solver.dist])
-        out["G"] = 0.0 if solver.feasible else 1.0
+        out["F"] = np.array([- float(len(val)), solver.result.distance])
+        out["G"] = 0.0 if solver.result.feasible else 1.0
         out["solver"] = solver
 
     def _calc_pareto_front(self, *args, **kwargs):
@@ -43,17 +43,17 @@ class MOOProblem(Problem):
 class MySampling(Sampling):
 
     def _do(self, problem, n_samples, **kwargs):
-        level_order_solver = SequenceSolver(problem=problem.data, height_limit=1000)
         truncation_args = {'limit': 25, 'method': "distance"}
+        level_order_solver = HeuristicTreeSolver(problem=problem.data, max_depth=1000, truncation_args=truncation_args)
 
-        ret = level_order_solver.solve(available=problem.ships,
-                                       truncation_args=truncation_args, verbose=False)["selected"]
+
+        ret = level_order_solver.solve()["selected"]
 
         n_each_seq = ceil(n_samples / len(ret))
 
         X = []
         for level in ret:
-            seq = [e[-1][1:-1] for e in level[:n_each_seq]]
+            seq = [e.seq[1:-1] for e in level[:n_each_seq]]
             X.extend(seq)
 
         X = np.array(X, dtype=np.object)[:, None]

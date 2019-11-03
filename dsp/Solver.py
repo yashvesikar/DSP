@@ -38,10 +38,6 @@ class DPSolver:
         self.states = kwargs.get('states') if kwargs.get('states') is not None else []
         self.seq = kwargs.get('seq')
         self.result = None
-        # self.feasible = False
-        # self.solution = None
-        # self.schedule = kwargs.get('schedule')
-        # self.dist = 0
 
     def __repr__(self):
         return f"Seq: {self.seq}"
@@ -150,27 +146,31 @@ class DPSolver:
 
         # Infeasible solution
         if len(states) != len(seq) or len(states[-1]) == 0:
-            return None
+            schedule = None
+            path = None
+            result.distance = 1e10
+            result.feasible = False
+        else:
+            prev_index = -1
+            schedule = []
+            for state in states[::-1]:
+                schedule.append(state.schedule[prev_index])
+                prev_index = int(state.indexes[prev_index])
 
-        prev_index = -1
-        schedule = []
-        for state in states[::-1]:
-            schedule.append(state.schedule[prev_index])
-            prev_index = int(state.indexes[prev_index])
+            schedule = schedule[::-1]
+            path = []
+            for t, s in zip(schedule, seq):
+                ship = self.problem.get_ship(s)
+                path.append(ship.get_position(int(t)))
 
-        schedule = schedule[::-1]
-        path = []
-        for t, s in zip(schedule, seq):
-            ship = self.problem.get_ship(s)
-            path.append(ship.get_position(int(t)))
+            if len(schedule) == len(seq):
+                result.feasible = True
 
-        if len(schedule) == len(seq):
-            result.feasible = True
+            result.distance = self.path_distance(path)
 
         result.seq = seq
         result.schedule = schedule
         result.path = path
-        result.distance = self.path_distance(path)
         return result
 
     def initalize(self):
@@ -274,12 +274,11 @@ def solve_sequence(problem, seq, **kwargs):
 
     result = solver.get_result()
 
-    if result and result.feasible:
-        solver.result = result
+    solver.result = result
 
     return solver
 
 if __name__ == "__main__":
     P = load_problem(T=6)
-    seq = [0, 32, 63, 4, 0]
+    seq = [0, 32, 6, 4, 0]
     solver = solve_sequence(problem=P, seq=seq)

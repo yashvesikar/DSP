@@ -29,12 +29,12 @@ def repopulate_queue(Q, solutions):
 
 
 
-class SequenceSolver:
+class HeuristicTreeSolver:
     def __init__(self, **kwargs):
         # super().__init__(**kwargs)
         self.problem = kwargs.get('problem')
         self.root = DPSolver(self.problem, seq=[])
-        self.max_depth = kwargs.get('max_height')
+        self.max_depth = kwargs.get('max_depth')
         self.available = set(self.problem.ships_in_working_area())
         self.truncation_args = kwargs.get('truncation_args')
 
@@ -46,6 +46,13 @@ class SequenceSolver:
         self.results = {}
 
     def _next(self, current, Q, depth):
+        """
+        Solves 1 sequence level
+        :param current: Current solver to expand
+        :param Q: Current Solver Queue
+        :param depth: Current depth in tree
+        :return: Updated Queue, best distance and best solver from this sequence expansion
+        """
         best_distance = 1e10
         best_solver = None
 
@@ -81,7 +88,7 @@ class SequenceSolver:
                 Q.append(sol)
         return Q, best_distance, best_solver
 
-    def solve(self):
+    def solve(self, verbose=False):
         """
 
         :return:
@@ -123,8 +130,9 @@ class SequenceSolver:
                 # all_seq.append([l.seq for l in Q if l])
                 Q, data = truncation(Q=Q, **self.truncation_args)
 
-                # selected.append([l.solution for l in Q if l])
-                print(f"Finished Processing Level # {depth + 1} - {best_distance} - {best_solver.seq}")
+                selected.append([l.result for l in Q if l])
+                if verbose:
+                    print(f"Finished Processing Level # {depth + 1} - {best_distance} - {best_solver.seq}")
 
                 # Update trackers
                 depth += 1
@@ -144,6 +152,7 @@ class SequenceSolver:
         result = {}
         result["results"] = self.best_distances
         result["solvers"] = self.best_solvers
+        result["selected"] = selected
         return result
 
 
@@ -152,7 +161,7 @@ if __name__ == "__main__":
     P = load_problem(T=6)
 
     truncation_args = {'limit': 1000, 'method': "distance"}
-    SeqSolver = SequenceSolver(problem=P, max_height=10, truncation_args=truncation_args)
+    SeqSolver = HeuristicTreeSolver(problem=P, max_depth=10, truncation_args=truncation_args)
 
     # truncation_args = {'limit': 1000, 'method': "decomposition", 'w': 0.306}
 
