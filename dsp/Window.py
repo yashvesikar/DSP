@@ -1,11 +1,12 @@
 import itertools
 import numpy as np
 import copy
-from dsp.Solver import solve_sequence
+from dsp.Solver import solve_sequence, DPSolver
+from dsp.Problem import load_problem
 import heapq
 
 
-def sliding_window(insert, remove, S, return_first=False):
+def sliding_window(insert, remove, S, return_first=False, restrict_available=False):
     """
 
     :param insert: Number of ships to expand by
@@ -22,13 +23,14 @@ def sliding_window(insert, remove, S, return_first=False):
     problem = load_problem()
 
     if isinstance(S, list):
-        solver = solve_sequence(problem=problem, seq=S)
+        _solver = solve_sequence(problem=problem, seq=S)
     elif isinstance(S, DPSolver):
-        solver = copy.copy(S)
+        _solver = copy.copy(S)
+        _solver.get_result()
     else:
         print("FAIL SLIDING WINDOW")
         return
-    sequence, schedule, distances = solver.seq[:], solver.schedule[:], [min(s.distances) for s in solver.states]
+    sequence, schedule, distances = _solver.seq[:], _solver.result.schedule[:], [min(s.distances) for s in _solver.states]
 
     for i in range(len(sequence) - remove):
         window = sequence[i+1:i + remove]
@@ -42,8 +44,13 @@ def sliding_window(insert, remove, S, return_first=False):
             avail.remove(0)
 
         sub_seq = list(itertools.permutations(avail, insert))
+        if restrict_available:
+            sub_seq = [s for s in sub_seq if len(set(sequence[i + 1:i + remove]) - set(s)) == 0]
+
         candidates = []  # Candidate solutions for full evaluation
         for ship in sub_seq:
+            solver = copy.copy(_solver)
+            solver.get_result()
             # Update the solver to the correct transition point
             while len(solver.seq) != len(sequence[:i+1]):
                 solver.pop_state()
@@ -67,25 +74,25 @@ def sliding_window(insert, remove, S, return_first=False):
 
         # Evaluate all candidate solutions
         for c in range(len(candidates)):
-            d, solver = heapq.heappop(candidates)
+            d, sver = heapq.heappop(candidates)
             for s in sequence[i + remove:]:
-                solver.next(s)
+                sver.next(s)
 
-            res = solver.get_result(solver.states, return_path=False, return_distance=True)
-            if res is not None:
+            result = sver.get_result()
+            if result.feasible:
                 if return_first:
-                    return solver
+                    return sver
 
-                if res[-1] < best_dist:
-                    best_dist = res[-1]
-                    best_solver = solver
+                if result.distance < best_dist:
+                    best_dist = result.distance
+                    best_solver = sver
     return best_solver
 
 
 def old_sliding_window(k, n, S, return_first=False):
     success = 0
     fail = 0
-    seq, sched, problem = S.seq, S.schedule, S.problem
+    seq, sched, problem = S.seq, S.result.schedule, S.problem
     best_dist = 1e10
     best_solver = None
     n += 1
@@ -103,15 +110,15 @@ def old_sliding_window(k, n, S, return_first=False):
         for ship in sub_seq:
             _seq = seq[:i + 1] + list(ship) + seq[i + n:]
             result = solve_sequence(problem=problem, seq=_seq)
-            if result.feasible:
+            if result.result.feasible:
                 success += 1
 
                 # Return the first feasible solution
                 if return_first:
                     return result
 
-                if result.dist < best_dist:
-                    best_dist = result.dist
+                if result.result.distance < best_dist:
+                    best_dist = result.result.distance
                     best_solver = result
 
             else:

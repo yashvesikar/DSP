@@ -1,6 +1,8 @@
+import copy
 import math
 import numpy as np
 from dsp.Problem import Problem, load_problem
+from collections import namedtuple
 from dsp.Visualize import Visualizer
 
 class State:
@@ -32,6 +34,14 @@ class Result:
         self.schedule = None
         self.distance = None
 
+    def __copy__(self):
+        obj = Result()
+        obj.feasible = self.feasible
+        obj.seq = self.seq[:]
+        obj.schedule = self.schedule[:] if self.schedule is not None else None
+        obj.distance = self.distance
+        return obj
+
 class DPSolver:
     def __init__(self, problem, **kwargs):
         self.problem = problem
@@ -46,6 +56,7 @@ class DPSolver:
         obj = DPSolver(self.problem)
         obj.seq = self.seq[:]
         obj.states = self.states[:]
+        obj.result = Result()
         return obj
 
     def clear(self):
@@ -137,15 +148,15 @@ class DPSolver:
         :param kwargs:
         :return:
         """
-        if self.result and self.result.seq == self.seq:
-            return self.result
+        # if self.result and self.result.seq == self.seq:
+        #     return self.result
 
         result = Result()
         seq = self.seq
         states = self.states
 
         # Infeasible solution
-        if len(states) != len(seq) or len(states[-1]) == 0:
+        if len(states) != len(seq) or len(states[-1]) == 0 or seq[0] != 0 or seq[-1] != 0:
             schedule = None
             path = None
             result.distance = 1e10
@@ -163,7 +174,7 @@ class DPSolver:
                 ship = self.problem.get_ship(s)
                 path.append(ship.get_position(int(t)))
 
-            if len(schedule) == len(seq):
+            if len(schedule) == len(seq) and seq[0] == 0 and seq[-1] == 0:
                 result.feasible = True
 
             result.distance = self.path_distance(path)
@@ -171,6 +182,7 @@ class DPSolver:
         result.seq = seq
         result.schedule = schedule
         result.path = path
+        self.result = result
         return result
 
     def initalize(self):

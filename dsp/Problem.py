@@ -119,7 +119,6 @@ class Problem:
         # xy_data[:m, 1:][xy_data[:m, 1:] == np.array([0, 0])] = np.nan
         # self.positions = xy_data
         # self.times = np.column_stack((first, last))
-        print()
 
     def get_ship(self, s):
         return self.ships[s]

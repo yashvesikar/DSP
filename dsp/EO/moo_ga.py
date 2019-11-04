@@ -169,11 +169,7 @@ def func_is_duplicate(pop, *other, **kwargs):
     return is_duplicate
 
 
-if __name__ == "__main__":
-    problem = load()
-
-    np.random.seed(1)
-
+def solve_moo(problem, verbose=False):
     my_problem = MOOProblem(problem)
 
     algorithm = NSGA2(
@@ -185,11 +181,19 @@ if __name__ == "__main__":
 
     res = minimize(my_problem,
                    algorithm,
-                   ('n_gen', 230),
+                   ('n_gen', 250),
                    seed=1,
-                   verbose=True)
+                   verbose=verbose)
     I = np.argsort(-res.F[:, 0])
     for i in I:
         print(f"{int(-res.F[i, 0])} - {res.F[i, 1]} -- {res.X[i]}")
-    # print(res.F[I])
-    # print(res.X[I])
+
+    results = [i.data['solver'][0] for i in res.opt]
+    return {"solvers": results}
+
+if __name__ == "__main__":
+    problem = load()
+
+    np.random.seed(1)
+
+    solve_moo(problem, verbose=True)

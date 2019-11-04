@@ -4,7 +4,7 @@ from collections import deque
 
 import numpy as np
 
-from dsp.EO.level_ga import my_sliding_window
+from dsp.Window import sliding_window
 from dsp.Model import Optimizer
 from dsp.Problem import Problem, load_problem
 from dsp.Solver import DPSolver, solve_sequence
@@ -22,7 +22,7 @@ def repopulate_queue(Q, solutions):
         if s:
             solver = solve_sequence(problem, s[-1])
             if solver.feasible:
-                res = my_sliding_window(2, 1, solver, return_first=False)
+                res = sliding_window(2, 1, solver, return_first=False, restrict_available=False)
                 if res.feasible:
                     Q.append(res)
 
