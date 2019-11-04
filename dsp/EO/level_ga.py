@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from dsp.Problem import Problem as ShipProblem
+from dsp.Problem import Problem as ShipProblem, load_problem
 
 from dsp.Solver import solve_sequence
 from pymoo.algorithms.so_genetic_algorithm import GA
@@ -110,51 +110,6 @@ class MyMutation(Mutation):
         return X
 
 
-def load(T=6):
-    x_data = np.genfromtxt("../../data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("../../data/y.csv", delimiter=",")
-    xy_data = np.stack([x_data, y_data], axis=2)
-    problem = ShipProblem(xy_data, T=T)
-    return problem
-
-
-# def my_sliding_window(k, n, S, return_first=False):
-#     success = 0
-#     fail = 0
-#     seq, sched, problem = S.seq, S.result.schedule, S.problem
-#     best_dist = 1e10
-#     best_solver = None
-#     n += 1
-#     for i in range(len(seq) - n):
-#         avail = problem.ships_in_working_area(start=sched[i], end=sched[i + n])
-#         avail = set(avail) - set(seq[:i + 1] + seq[i + n:])
-#         if 0 in avail:
-#             avail.remove(0)
-#
-#         sub_seq = list(itertools.permutations(avail, k))
-#
-#         # MOD
-#         sub_seq = [s for s in sub_seq if len(set(seq[i + 1:i + n]) - set(s)) == 0]
-#
-#         for ship in sub_seq:
-#             _seq = seq[:i + 1] + list(ship) + seq[i + n:]
-#             result = solve_sequence(problem=problem, seq=_seq)
-#             if result.result.feasible:
-#                 success += 1
-#
-#                 # Return the first feasible solution
-#                 if return_first:
-#                     return result
-#
-#                 if result.result.distance < best_dist:
-#                     best_dist = result.result.distance
-#                     best_solver = result
-#
-#             else:
-#                 fail += 1
-#
-#     return best_solver
-
 
 class MyTermination(SingleObjectiveToleranceBasedTermination):
 
@@ -257,12 +212,7 @@ def solve_level_ga(problem, verbose=False):
     return {"solvers": results}
 
 if __name__ == "__main__":
-    problem = load()
-
     np.random.seed(1)
-
-    ret = []
-
-    res = solve_level_ga(problem, verbose=True)
+    res = solve_level_ga(load_problem(6), verbose=True)
 
     print(res['solvers'])

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 class Ship:
@@ -39,6 +41,7 @@ class Ship:
 class Problem:
     def __init__(self, xy_data, T=6):
         self.ships = None
+        self.pf = None
         self.data = xy_data
         w = 5/60
         self.m = np.floor((T/w) + 0.1)
@@ -125,20 +128,20 @@ class Problem:
 
 
 def load_problem(T=6):
-    # Data
-    x_data = np.genfromtxt("/Users/yashvesikar/Documents/Research/DSP/DSP/data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("/Users/yashvesikar/Documents/Research/DSP/DSP/data/y.csv", delimiter=",")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+    # Data
+    x_data = np.genfromtxt(os.path.join(root, "data", "x.csv"), delimiter=",")
+    y_data = np.genfromtxt(os.path.join(root, "data", "y.csv"), delimiter=",")
     xy_data = np.stack([x_data, y_data], axis=2)
 
     P = Problem(xy_data, T=T)
+
+    pf = os.path.join(root, "data","pf", f"{T}.csv")
+    if os.path.exists(pf):
+        P.pf = np.loadtxt(pf)
+
     return P
 
 if __name__ == "__main__":
-    # Data
-    x_data = np.genfromtxt("data/x.csv", delimiter=",")
-    y_data = np.genfromtxt("data/y.csv", delimiter=",")
-
-    xy_data = np.stack([x_data, y_data], axis=2)
-
-    P = Problem(xy_data)
+    P = load_problem(6)

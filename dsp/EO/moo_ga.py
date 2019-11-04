@@ -1,11 +1,10 @@
 import copy
-import itertools
 from math import ceil
 
 import numpy as np
 
-from dsp.EO.level_ga import load
 from dsp.HTSolver import HeuristicTreeSolver
+from dsp.Problem import load_problem
 from dsp.Solver import solve_sequence
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.model.crossover import Crossover
@@ -13,6 +12,7 @@ from pymoo.model.mutation import Mutation
 from pymoo.model.problem import Problem
 from pymoo.model.sampling import Sampling
 from pymoo.optimize import minimize
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 class MOOProblem(Problem):
@@ -24,20 +24,16 @@ class MOOProblem(Problem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         val = x[0]
-        if isinstance(val, str):
-            # print(val)
-            val = [int(e) for e in val[1:-1].split(",")]
-
         seq = [0] + val + [0]
+
         solver = solve_sequence(self.data, seq)
         out["F"] = np.array([- float(len(val)), solver.result.distance])
         out["G"] = 0.0 if solver.result.feasible else 1.0
         out["solver"] = solver
 
     def _calc_pareto_front(self, *args, **kwargs):
-        ideal = [0.0, 0.0]
-        nadir = [20.0, 210.0]
-        return np.row_stack([ideal, nadir])
+        pf = self.data.pf.astype(np.float) * [-1, 1]
+        return pf
 
 
 class MySampling(Sampling):
@@ -45,10 +41,7 @@ class MySampling(Sampling):
     def _do(self, problem, n_samples, **kwargs):
         truncation_args = {'limit': 25, 'method': "distance"}
         level_order_solver = HeuristicTreeSolver(problem=problem.data, max_depth=1000, truncation_args=truncation_args)
-
-
         ret = level_order_solver.solve()["selected"]
-
         n_each_seq = ceil(n_samples / len(ret))
 
         X = []
@@ -68,7 +61,7 @@ def crossover(p_a, p_b, s_a):
         for j in J:
             prefix, suffix = p_a[:i], p_b[j:]
             suffix = [s for s in suffix if s not in prefix]
-            return list(prefix) + list(suffix)
+            #return prefix + suffix
 
             if len(suffix) > 0:
 
@@ -93,23 +86,18 @@ class MyCrossover(Crossover):
     def do(self, problem, pop, parents, algorithm=None, **kwargs):
         solvers = algorithm.pop.get("solver")
 
+        off = pop.new(len(parents) * self.n_offsprings)
+
         X = []
         for k, (a, b) in enumerate(parents):
             s_a, s_b = solvers[a, 0], solvers[b, 0]
             p_a, p_b = s_a.seq[1:-1], s_b.seq[1:-1]
+            off[2 * k].X =  [crossover(p_a, p_b, s_a)]
+            off[2 * k + 1].X = [crossover(p_b, p_a, s_b)]
 
-            X.append([crossover(p_a, p_b, s_a)])
-            X.append([crossover(p_b, p_a, s_b)])
-
-        return safe_pop(pop.new("X", X))
-
+        return off
 
 
-def safe_pop(pop):
-    for ind in pop:
-        if isinstance(ind.X[0], np.ndarray):
-            ind.X = [ind.X[0].tolist()]
-    return pop
 
 
 class MOOMutation(Mutation):
@@ -142,13 +130,23 @@ class MOOMutation(Mutation):
                 sub_seq = np.array(list(avail))[np.random.permutation(len(avail))[:1]]
                 off.X[0] = X[:ind] + sub_seq.tolist() + X[ind + 1:]
 
-        return safe_pop(pop)
+        return pop
+
+def my_callback(algorithm):
+    disp = algorithm.func_display_attrs(algorithm.problem, algorithm.evaluator, algorithm, algorithm.pf)
+    disp = [e for e in disp if e[0] not in ["igd", "gd"]]
+
+    pop = algorithm.pop
+    pf = algorithm.problem.pareto_front()
+
+    max_n_ships = max([len(ind.X[0]) for ind in pop])
+    disp.append(('n_ships', max_n_ships, 5))
+
+    error = 0
+
+    algorithm._display(disp)
 
 
-
-# the input is the current population and a list of other populations.
-# the function returns if an individual in pop is equal to any other individual
-# in any other population.
 def func_is_duplicate(pop, *other, **kwargs):
     if len(other) == 0:
         return np.full(len(pop), False)
@@ -177,13 +175,15 @@ def solve_moo(problem, verbose=False):
         sampling=MySampling(),
         crossover=MyCrossover(),
         mutation=MOOMutation(),
+        callback=my_callback,
         eliminate_duplicates=func_is_duplicate)
 
     res = minimize(my_problem,
                    algorithm,
                    ('n_gen', 250),
                    seed=1,
-                   verbose=verbose)
+                   verbose=False)
+
     I = np.argsort(-res.F[:, 0])
     for i in I:
         print(f"{int(-res.F[i, 0])} - {res.F[i, 1]} -- {res.X[i]}")
@@ -192,8 +192,5 @@ def solve_moo(problem, verbose=False):
     return {"solvers": results}
 
 if __name__ == "__main__":
-    problem = load()
-
     np.random.seed(1)
-
-    solve_moo(problem, verbose=True)
+    solve_moo(load_problem(6), verbose=True)
