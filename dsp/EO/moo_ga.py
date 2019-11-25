@@ -4,43 +4,24 @@ from math import ceil
 import numpy as np
 
 from dsp.HTSolver import HeuristicTreeSolver
-from dsp.Problem import load_problem
+from dsp.Problem import load_problem, ShipProblem, load_data, MOOProblem
 from dsp.Solver import solve_sequence
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.model.crossover import Crossover
 from pymoo.model.mutation import Mutation
-from pymoo.model.problem import Problem
 from pymoo.model.sampling import Sampling
 from pymoo.optimize import minimize
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
-class MOOProblem(Problem):
-    def __init__(self, problem):
-        self.ships = set(problem.ships_in_working_area()[1:])
-        self.n_avail = len(self.ships)
-        super().__init__(n_var=1, n_obj=2, n_constr=1, elementwise_evaluation=True)
-        self.data = problem
 
-    def _evaluate(self, x, out, *args, **kwargs):
-        val = x[0]
-        seq = [0] + val + [0]
-
-        solver = solve_sequence(self.data, seq)
-        out["F"] = np.array([- float(len(val)), solver.result.distance])
-        out["G"] = 0.0 if solver.result.feasible else 1.0
-        out["solver"] = solver
-
-    def _calc_pareto_front(self, *args, **kwargs):
-        pf = self.data.pf.astype(np.float) * [-1, 1]
-        return pf
 
 
 class MySampling(Sampling):
 
     def _do(self, problem, n_samples, **kwargs):
         truncation_args = {'limit': 25, 'method': "distance"}
-        level_order_solver = HeuristicTreeSolver(problem=problem.data, max_depth=1000, truncation_args=truncation_args)
+        level_order_solver = HeuristicTreeSolver(problem=problem, max_depth=1000, truncation_args=truncation_args)
         ret = level_order_solver.solve()["selected"]
         n_each_seq = ceil(n_samples / len(ret))
 
@@ -108,10 +89,10 @@ class MOOMutation(Mutation):
             X = off.X[0]
 
             ind = np.random.randint(0, len(X))
-            _start = problem.data.get_ship(X[max(0, ind - 1)]).times[0]
-            _end = problem.data.get_ship(X[min(len(X)-1, ind + 1)]).times[-1]
+            _start = problem.get_ship(X[max(0, ind - 1)]).times[0]
+            _end = problem.get_ship(X[min(len(X)-1, ind + 1)]).times[-1]
 
-            avail = set(problem.data.ships_in_working_area(start=_start, end=_end)) - set(
+            avail = set(problem.ships_in_working_area(start=_start, end=_end)) - set(
                 X[:ind] + X[ind + 1:]) - set([0])
 
             choice = np.random.randint(0, 3)
@@ -167,8 +148,9 @@ def func_is_duplicate(pop, *other, **kwargs):
     return is_duplicate
 
 
-def solve_moo(problem, verbose=False):
-    my_problem = MOOProblem(problem)
+def solve_moo(T=6, verbose=False):
+    data, pf = load_data(pf=True, T=T)
+    my_problem = MOOProblem(xy_data=data, T=T, pf=pf)
 
     algorithm = NSGA2(
         pop_size=100,
@@ -193,4 +175,4 @@ def solve_moo(problem, verbose=False):
 
 if __name__ == "__main__":
     np.random.seed(1)
-    solve_moo(load_problem(6), verbose=True)
+    solve_moo(T=6, verbose=True)

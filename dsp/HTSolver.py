@@ -41,6 +41,7 @@ class HeuristicTreeSolver:
         # Solution Trackers
         self.best_distances = []
         self.best_solvers = []
+        self.current_best = None
 
         # Final results
         self.results = {}
@@ -147,6 +148,7 @@ class HeuristicTreeSolver:
             if bd <= best_distance:
                 best_distance = bd
                 best_solver = bs
+                self.current_best = bs
             # ------------------------------------------------------------------------------------
 
         result = {}

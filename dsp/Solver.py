@@ -1,13 +1,14 @@
 import copy
 import math
 import numpy as np
-from dsp.Problem import Problem, load_problem
+# from dsp.Problem import load_problem
 from collections import namedtuple
 from dsp.Visualize import Visualizer
 
 class State:
 
-    def __init__(self, shape=None, value=None):
+    def __init__(self, id, shape=None, value=None):
+        self.id = id
         self.indexes = np.full(shape, value, dtype=np.int) if shape else None
         self.schedule = np.full(shape, value, dtype=np.int) if shape else None
         self.distances = np.full(shape, value, dtype=np.float) if shape else None
@@ -15,7 +16,7 @@ class State:
         self.i = 0
 
     def __repr__(self):
-        return f"Sched: {self.schedule}"
+        return f"Ship: {self.id}"
 
     def __len__(self):
         return len(self.indexes)
@@ -193,7 +194,7 @@ class DPSolver:
         self.seq.append(0)
         harbor = self.problem.get_ship(0)
         harbor_times = harbor.get_times(array=True)
-        self.states.append(State(shape=harbor_times.shape, value=0))
+        self.states.append(State(id=0, shape=harbor_times.shape, value=0))
 
     def next(self, s, modify_seq=True):
 
@@ -229,7 +230,7 @@ class DPSolver:
         total_distance += last_state.distances
 
         # New state object to store state of the current ship
-        _state = State()
+        _state = State(id=s)
 
         # eliminate all infeasible solutions by setting the travel time to infinite
         total_time_to_next = (distance_matrix / 46.3) / (5 / 60)  # Store travel times to next ship
@@ -276,13 +277,21 @@ class DPSolver:
             return True
         return False
 
-def solve_sequence(problem, seq, **kwargs):
+def solve_sequence(problem, seq, skip_infeasible=True, **kwargs):
     solver = DPSolver(problem=problem, seq=[])
 
     assert len(seq) > 2 and seq[0] == 0 and seq[-1] == 0
 
-    for s in seq:
-        solver.next(s)
+    for i, s in enumerate(seq):
+        feasible = solver.next(s)
+        if not skip_infeasible:
+            if not feasible:
+                # Infeasible transition
+                solver.states.pop()
+                solver.seq.pop()
+                solver.states.pop()
+                solver.seq.pop()
+                solver.next(s)
 
     result = solver.get_result()
 
@@ -292,5 +301,7 @@ def solve_sequence(problem, seq, **kwargs):
 
 if __name__ == "__main__":
     P = load_problem(T=6)
-    seq = [0, 32, 6, 4, 0]
-    solver = solve_sequence(problem=P, seq=seq)
+    seq = [0, 32, 63, 2, 6, 4, 0]
+    solver = solve_sequence(problem=P, seq=seq, skip_infeasible=True)
+    result = solver.get_result()
+    print(result.distance)

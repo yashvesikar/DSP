@@ -2,6 +2,11 @@ import os
 
 import numpy as np
 
+from pymoo.model.problem import Problem
+
+# from dsp.Solver import solve_sequence
+
+W = 5 / 60
 class Ship:
     def __init__(self, number, positions, times):
         self.id = number
@@ -38,15 +43,20 @@ class Ship:
         return self.times[0] <= time < self.times[1]
 
 
-class Problem:
-    def __init__(self, xy_data, T=6):
-        self.ships = None
-        self.pf = None
+class ShipProblem(Problem):
+    def __init__(self, xy_data, T=6, pf=None, **kwargs):
         self.data = xy_data
-        w = 5/60
-        self.m = np.floor((T/w) + 0.1)
         self.T = T
+        self.ship_data = None
+        self.pf = pf
+
+        self.m = np.floor((T / W) + 0.1)
+
         self.construct(xy_data, T)
+
+        self.in_working_area = set(self.ships_in_working_area()[1:])
+        self.n_avail = len(self.in_working_area)
+        super().__init__(**kwargs)
 
     def get_ships_positions(self, S):
         """
@@ -56,7 +66,7 @@ class Problem:
         """
         pos = []
         for s in S:
-            pos.append(self.ships[s].get_positions())
+            pos.append(self.ship_data[s].get_positions())
         return pos
 
     def ships_in_working_area(self, start=0, end=None):
@@ -65,7 +75,7 @@ class Problem:
 
         w = []
 
-        for s in self.ships:
+        for s in self.ship_data:
             # Time entering WA > end of window
             # Or Time leaving WA < start of window
             if s.times[0] > end or s.times[1] < start:
@@ -87,47 +97,56 @@ class Problem:
         # Number of time slots in time [0, T]
         m = int(np.floor(T / w + 0.1))
 
-        # first = np.full(n, m, dtype=np.int)  # First slot when ship i is in the work area
-        first = m  # First slot when ship i is in the work area
-        # last = np.full(n, 0, dtype=np.int)  # Last slot when ship i is in the work area
-        last = 0  # Last slot when ship i is in the work area
-
         # For loop to fill out first, and last array
         for s in range(n):
-
             c = np.all(xy_data[:, s] != 0, axis=1)
             non_zero = np.where(c)[0]
-            # number = s
+
             if len(non_zero):
-                # first[s] = non_zero[0]
                 first = non_zero[0]
-                # last[s] = non_zero[-1] + 1
                 last = non_zero[-1] + 1
             elif s == 0:
-                # first[s] = 0
                 first = 0
-                # last[s] = m
                 last = m + 1
-                # number = 0
             else:
-                # first[s] = -1
                 first = -1
-                # last[s] = -1
                 last = -1
+
             ships.append(Ship(number=s, positions=xy_data[first:last, s], times=(first, last)))
 
-        self.ships = ships
-        # # Harbor should always be (0, 0)
-        # # Replace all other (0, 0) values with nan
-        # xy_data[:m, 1:][xy_data[:m, 1:] == np.array([0, 0])] = np.nan
-        # self.positions = xy_data
-        # self.times = np.column_stack((first, last))
+        self.ship_data = ships
+
 
     def get_ship(self, s):
-        return self.ships[s]
+        return self.ship_data[s]
 
 
-def load_problem(T=6):
+class MOOProblem(ShipProblem):
+    def __init__(self, xy_data, T=6, **kwargs):
+
+        super().__init__(xy_data=xy_data,
+                         T=T,
+                         n_var=1,
+                         n_obj=2,
+                         n_constr=1,
+                         elementwise_evaluation=True,
+                         **kwargs)
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        val = x[0]
+        seq = [0] + val + [0]
+
+        solver = solve_sequence(self, seq)
+        out["F"] = np.array([- float(len(val)), solver.result.distance])
+        out["G"] = 0.0 if solver.result.feasible else 1.0
+        out["solver"] = solver
+
+    def _calc_pareto_front(self, *args, **kwargs):
+        pf = self.pf.astype(np.float) * [-1, 1]
+        return pf
+
+
+def load_data(pf=False, T=6):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     # Data
@@ -135,11 +154,21 @@ def load_problem(T=6):
     y_data = np.genfromtxt(os.path.join(root, "data", "y.csv"), delimiter=",")
     xy_data = np.stack([x_data, y_data], axis=2)
 
-    P = Problem(xy_data, T=T)
+    if pf and T:
+        _pf = os.path.join(root, "data", "pf", f"{T}.csv")
+        if os.path.exists(_pf):
+            _pf =  np.loadtxt(_pf)
+            return (xy_data, _pf)
+        else:
+            print(f"{_pf} Does not exist.")
 
-    pf = os.path.join(root, "data","pf", f"{T}.csv")
-    if os.path.exists(pf):
-        P.pf = np.loadtxt(pf)
+    return xy_data
+
+
+def load_problem(problem='ship', T=6, **kwargs):
+    data, pf = load_data(pf=True, T=T)
+
+    P = ShipProblem(xy_data=data, pf=pf, T=T)
 
     return P
 
